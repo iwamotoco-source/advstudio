@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MY COMPANY ↔ ADV STUDIO Bridge</title>
+<style>
+html,body{margin:0;height:100%;background:#08111b;color:#dcecff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}body{display:flex;flex-direction:column}header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0b1724;border-bottom:1px solid #1d3348;font-size:12px}#state{margin-left:auto;font-size:10px;color:#62dfa8}iframe{border:0;width:100%;flex:1;background:#000}.note{font-size:9px;color:#71879b;padding:5px 10px;background:#07101a;border-top:1px solid #14283a}
+</style>
+</head>
+<body>
+<header><b>MY COMPANY / ADV STUDIO BRIDGE</b><span>v1.0</span><span id="state">READY</span></header>
+<iframe id="studio" src="./index.html" title="ADV STUDIO"></iframe>
+<div class="note">追加API課金なし。ADV STUDIOと同じGitHub Pages originの保存データを読み書きします。</div>
+<script>
+(()=>{
+'use strict';
+const VERSION=1;
+const STORAGE_KEY='kv_proj2';
+const frame=document.getElementById('studio');
+const TRUSTED=new Set(['https://my-company-studio.iwamoto-co.chatgpt.site','https://iwamotoco-source.github.io']);
+const LOCAL=/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const allowed=o=>TRUSTED.has(o)||LOCAL.test(o);
+const clone=v=>JSON.parse(JSON.stringify(v));
+function loadProject(){const raw=localStorage.getItem(STORAGE_KEY);if(!raw)throw Error('ADV STUDIO project is not initialized');return JSON.parse(raw);}
+function saveProject(p){if(!p||!Array.isArray(p.scenes)||!p.scenes.length)throw Error('project.scenes is required');localStorage.setItem(STORAGE_KEY,JSON.stringify(p));return p;}
+function getScene(p,id){return p.scenes.find(s=>s.id===id||s.title===id);}
+function validate(p){const out=[];if(!p.title)out.push('作品タイトルが空です');if(!Array.isArray(p.scenes)||!p.scenes.length)out.push('シーンがありません');const ids=new Set();for(const s of p.scenes||[]){if(!s.id)out.push('IDなしのシーンがあります');else if(ids.has(s.id))out.push('シーンID重複: '+s.id);else ids.add(s.id);if(typeof s.script!=='string')out.push('script不正: '+(s.id||'?'));}return out;}
+function applyOps(ops){const p=loadProject();let n=0;for(const op of ops||[]){if(!op||!op.type)throw Error('operation.type is required');switch(op.type){case 'project.setTitle':p.title=String(op.title||'').trim()||p.title;break;case 'project.mergeSettings':p.settings=Object.assign({},p.settings||{},op.settings||{});break;case 'scene.upsert':{const v=clone(op.scene||{});if(!v.id)throw Error('scene.id is required');const s=getScene(p,v.id);if(s)Object.assign(s,v);else p.scenes.push(Object.assign({title:v.id,script:''},v));break;}case 'scene.patch':{const s=getScene(p,op.id);if(!s)throw Error('scene not found: '+op.id);if(op.title!==undefined)s.title=String(op.title);if(op.theme!==undefined)s.theme=op.theme||undefined;if(op.script!==undefined)s.script=String(op.script);break;}case 'scene.replaceScript':{const s=getScene(p,op.id);if(!s)throw Error('scene not found: '+op.id);s.script=String(op.script||'');break;}case 'scene.appendScript':{const s=getScene(p,op.id);if(!s)throw Error('scene not found: '+op.id);const t=String(op.text||'');s.script+=(s.script&&t?'\n':'')+t;break;}default:throw Error('unsupported operation: '+op.type);}n++;}
+saveProject(p);frame.contentWindow.location.reload();return {applied:n,project:clone(p),warnings:validate(p)};}
+function reply(target,origin,id,ok,result,error){target.postMessage({source:'adv-studio-bridge',v:VERSION,id,ok,result,error},origin);}
+window.addEventListener('message',e=>{const m=e.data;if(!m||m.source!=='my-company'||m.v!==VERSION||m.type!=='adv.command')return;if(!allowed(e.origin)){reply(e.source,e.origin,m.id,false,null,'origin not allowed');return;}try{let result;switch(m.command){case 'ping':result={pong:true,bridgeVersion:'1.0.0'};break;case 'getStatus':{const p=loadProject();result={title:p.title||'',sceneCount:(p.scenes||[]).length,characterCount:(p.characters||[]).length,themeCount:(p.themes||[]).length,warnings:validate(p)};break;}case 'getProject':result=clone(loadProject());break;case 'replaceProject':result={project:clone(saveProject(clone(m.payload?.project))),warnings:validate(m.payload?.project)};frame.contentWindow.location.reload();break;case 'applyOps':result=applyOps(m.payload?.ops||[]);break;case 'validate':result=validate(loadProject());break;default:throw Error('unsupported command: '+m.command);}reply(e.source,e.origin,m.id,true,result,null);}catch(err){reply(e.source,e.origin,m.id,false,null,String(err?.message||err));}});
+window.parent!==window&&window.parent.postMessage({source:'adv-studio-bridge',v:VERSION,type:'ready',bridgeVersion:'1.0.0',capabilities:['ping','getStatus','getProject','replaceProject','applyOps','validate']},'*');
+})();
+</script>
+</body>
+</html>
