@@ -251,7 +251,7 @@ const FONTS={mincho:['明朝','"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto
  mono:['等幅','ui-monospace,Menlo,monospace']};
 const DFONT=()=>({f:'mincho',size:16,lh:1.85,color:'#ffffff',shadow:1});
 const DEF={title:'暮石村',
- settings:{textSpeed:35,autoWait:1400,msgH:30,theme:'normal',autoShrink:false},
+ settings:{textSpeed:35,autoWait:1400,msgH:30,theme:'normal',autoShrink:false,punctWait:true},
  themes:[{id:'normal',name:'通常',slots:{},font:DFONT(),nameFont:{f:'mincho',size:14,color:'#ffffff'}},
   {id:'horror',name:'ホラー',slots:{},font:Object.assign(DFONT(),{color:'#ffd3d8'}),nameFont:{f:'mincho',size:14,color:'#ff9aa6'}}],
  characters:[{id:'ayane',name:'雨宮 彩音',color:'#ffd3dd',faces:{}},{id:'yabuki',name:'矢吹',color:'#cfe4ff',faces:{}},
@@ -337,6 +337,10 @@ function parseScript(text,names){
   if(t.startsWith('\\@')||t.startsWith('\\//')){ops.push({cmd:'msg',text:t.slice(1),ln0:i,ln1:i});continue;}
   if(t[0]==='@'){const m=t.slice(1).match(/^(\S+)\s*([\s\S]*)$/);if(!m)continue;
    const cmd=m[1].toLowerCase(),args=parseArgs(m[2]||'');
+   if(cmd==='msg'){const kind=String(args.type||'narr').toLowerCase();let sid=args.sid||null,sp=args.speaker||null;
+    if(kind==='say'&&sid){const c=(names||[]).find(x=>x.id===sid);if(c)sp=c.name;}
+    if(kind!=='say'){sid=null;sp=null;}
+    ops.push({cmd:'msg',speaker:sp,sid,text:String(args.text!==undefined?args.text:(args._||'')),args,ln0:i,ln1:i});continue;}
    if(cmd==='label'){lb[args._||args.name||'']=ops.length;ops.push({cmd:'label',args,ln0:i,ln1:i});continue;}
    if(cmd==='choice'){const o=[],s0=i;
     while(i+1<L.length&&/^(\*|-)\s+/.test(L[i+1].trim())){const b=L[++i].trim().replace(/^(\*|-)\s+/,''),k=b.lastIndexOf('->'),p=k<0?[b,'']:[b.slice(0,k),b.slice(k+2)];
@@ -372,7 +376,7 @@ const CAT={screen:'画面',chara:'人物',text:'文章',sound:'音',fx:'演出',
 const CMD={
  bg:{l:'背景',i:'▣',c:'screen',f:[{k:'_',t:'asset',kinds:['bg'],l:'背景素材'},{k:'fade',t:'num',l:'フェード(ms)',d:600}]},
  cg:{l:'イベントCG',i:'▤',c:'screen',f:[{k:'_',t:'asset',kinds:['bg'],l:'CG素材'},{k:'fade',t:'num',l:'フェード(ms)',d:600}]},
- chara:{l:'立ち絵',i:'☻',c:'chara',f:[{k:'id',t:'chara',l:'キャラ'},{k:'face',t:'face',l:'表情'},{k:'pos',t:'sel',o:[['left','左'],['center','中央'],['right','右']],l:'位置'},{k:'scale',t:'num',l:'大きさ倍率(例1.0)'},{k:'asset',t:'asset',kinds:['chara'],l:'直接指定(任意)'}]},
+ chara:{l:'立ち絵',i:'☻',c:'chara',f:[{k:'id',t:'chara',l:'キャラ'},{k:'face',t:'face',l:'表情'},{k:'pos',t:'sel',o:[['left','左'],['center','中央'],['right','右']],l:'位置'},{k:'scale',t:'num',l:'大きさ倍率(例1.0)'},{k:'enter',t:'sel',o:[['fade','フェード'],['left','左から'],['right','右から'],['pop','ポップ'],['instant','即時']],l:'登場アニメ'},{k:'ms',t:'num',l:'登場時間(ms)',d:400},{k:'asset',t:'asset',kinds:['chara'],l:'直接指定(任意)'}]},
  hide:{l:'立ち絵を消す',i:'☓',c:'chara',f:[{k:'id',t:'chara',l:'キャラ(空=全員)'}]},
  bgm:{l:'BGM',i:'♪',c:'sound',f:[{k:'_',t:'asset',kinds:['bgm','se'],l:'BGM素材'},{k:'vol',t:'num',l:'音量0〜1',d:.7},{k:'loop',t:'sel',o:[['1','ループ'],['0','1回']],l:'再生'}]},
  bgmstop:{l:'BGM停止',i:'♪',c:'sound',f:[{k:'ms',t:'num',l:'フェード(ms)',d:800}]},
@@ -478,6 +482,15 @@ const PCSS=`
 .kv-tx{position:relative;flex:1;white-space:pre-wrap;letter-spacing:.03em;overflow:hidden}
 .kv-nx{position:absolute;right:7px;bottom:3px;font-size:11px;color:#9fb4c9;opacity:0;animation:kvbl 1.2s infinite}
 .kv-nx.on{opacity:1}@keyframes kvbl{0%,100%{opacity:.25}50%{opacity:1}}
+.kv.kv-narr-center .kv-mw{top:0;bottom:0;height:auto!important;min-height:0!important;justify-content:center;padding:8vh 10vw;z-index:8}
+.kv.kv-narr-center .kv-tp{display:none}
+.kv.kv-narr-center .kv-ms{flex:0 0 auto;min-height:0;max-height:60vh;background:transparent;border:0;box-shadow:none}
+.kv.kv-narr-center .kv-tx{position:relative!important;inset:auto!important;margin:0!important;padding:18px 20px;text-align:center;overflow:visible}
+.kv.kv-narr-black .kv-st{filter:brightness(0);transition:filter .2s}
+.kv-tx.kv-tx-fade{animation:kvtxtfade .32s ease-out}
+@keyframes kvtxtfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.kv-tx.kv-tx-shake{animation:kvtxtshake .12s steps(2) infinite}
+@keyframes kvtxtshake{0%,100%{transform:none}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
 .kv-ch{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 22px;display:none;flex-direction:column;gap:9px;z-index:20}
 .kv-ch.on{display:flex}
 .kv-cb{position:relative;background:linear-gradient(#182230ee,#0b1219ee);border:1px solid #ffffff55;color:#fff;border-radius:8px;font-family:serif;letter-spacing:.04em;background-size:100% 100%;background-repeat:no-repeat;display:flex;align-items:center;justify-content:center;text-align:center;padding:14px 12px;font-size:15px}
@@ -512,7 +525,7 @@ function applyWin(el,txEl,assetId,meta,resolve,font,fonts,pad){
 function fitText(box,base){if(!box)return;let s=base;box.style.fontSize=s+'px';let n=0;
  while(box.scrollHeight>box.clientHeight+1&&s>base*.6&&n<14){s-=.7;box.style.fontSize=s+'px';n++;}}
 function createPlayer(root,pj,resolve,opts){
- opts=opts||{};let destroyed=false,blocked=false,modalPaused=false,pendingRun=false;const timers=new Set();const setTimeout=(fn,ms)=>{const id=window.setTimeout(()=>{timers.delete(id);if(!destroyed)fn();},ms);timers.add(id);return id;};const clearTimeout=id=>{window.clearTimeout(id);timers.delete(id);};const S=Object.assign({textSpeed:35,autoWait:1400,msgH:30,theme:'normal'},pj.settings||{});
+ opts=opts||{};let destroyed=false,blocked=false,modalPaused=false,pendingRun=false;const timers=new Set();const setTimeout=(fn,ms)=>{const id=window.setTimeout(()=>{timers.delete(id);if(!destroyed)fn();},ms);timers.add(id);return id;};const clearTimeout=id=>{window.clearTimeout(id);timers.delete(id);};const S=Object.assign({textSpeed:35,autoWait:1400,msgH:30,theme:'normal',punctWait:true},pj.settings||{});
  const FN=pj.fonts||{mincho:['明朝','serif']},MT=pj.uiMeta||{};
  root.innerHTML='<div class="kv"><div class="kv-st">'+
   '<div class="kv-bg b1"></div><div class="kv-bg b2"></div><div class="kv-cs"></div><div class="kv-vg"></div>'+
@@ -559,7 +572,12 @@ function createPlayer(root,pj,resolve,opts){
   if(src)e.src=src;const p=a.pos||e.dataset.p||'center';e.dataset.p=p;
   e.style.left={left:'26%',center:'50%',right:'74%'}[p]||p;
   if(a.scale)e.style.height=(parseFloat(a.scale)*94)+'%';
-  if(stat)e.style.opacity='1';else requestAnimationFrame(()=>{if(!destroyed)e.style.opacity='1';});}
+  const enter=a.enter||'fade',ms=Math.max(0,+a.ms||400),base='translateX(-50%)';
+  e.style.transitionProperty='opacity,transform';e.style.transitionDuration=(stat||enter==='instant')?'0s':(ms/1000)+'s';
+  if(stat||enter==='instant'){e.style.transform=base;e.style.opacity='1';return;}
+  e.style.opacity='0';
+  e.style.transform=enter==='left'?'translateX(calc(-50% - 56px))':enter==='right'?'translateX(calc(-50% + 56px))':enter==='pop'?base+' scale(.9)':base;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!destroyed){e.style.transform=base;e.style.opacity='1';}}));}
  function hide(id){if(!id||id==='all'){Object.keys(CE).forEach(k=>CE[k].style.opacity='0');return;}if(CE[id])CE[id].style.opacity='0';}
  function fv(a,to,ms,cb){if(!a)return cb&&cb();const f=a.volume,s=performance.now();
   (function l(t){const k=Math.min(1,((t||s)-s)/(ms||500));try{a.volume=Math.max(0,Math.min(1,f+(to-f)*k));}catch(e){}
@@ -572,17 +590,25 @@ function createPlayer(root,pj,resolve,opts){
  function pse(id,v){if(stat)return;const u=resolve(id);if(!u)return;const a=new Audio(u);a.volume=muted?0:(v!==undefined?+v:.9);sounds.add(a);a.onended=()=>sounds.delete(a);a.play().catch(()=>{sounds.delete(a);audioLocked=true;});}
  function sysmsg(t){E.syt.textContent=t;E.sy.classList.add('on');if(!stat)setTimeout(()=>E.sy.classList.remove('on'),2400);}
  function lg(sp,t){logs.push({sp:sp||'',t});if(logs.length>400)logs.shift();}
- function txt(sp,t,inst){const nm=nmOv!==null?nmOv:(sp||'');
-  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm);
+ function setTextLayout(kind,layout){const center=kind==='narr'&&(layout==='center'||layout==='black');E.kv.classList.toggle('kv-narr-center',center);E.kv.classList.toggle('kv-narr-black',kind==='narr'&&layout==='black');}
+ function txt(sp,t,inst,opt){opt=opt||{};const kind=opt.type||(sp?'say':'narr'),layout=opt.layout||'box';setTextLayout(kind,layout);
+  const nm=nmOv!==null?nmOv:(sp||'');
+  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');
   const c=(pj.characters||[]).find(x=>x.name===sp);
   if(c&&c.color&&!(TH[curTh]&&TH[curTh].slots.name))E.nmt.style.color=c.color;
-  lg(nm,t);E.nx.classList.remove('on');full=t;ti=0;
-  const fin=()=>{E.tx.textContent=full;fitText(E.tx,baseFS);typing=false;if(!stat)done();};
-  clearInterval(tm);
-  if(inst||skip||stat){fin();return;}
-  typing=true;E.tx.textContent=t;fitText(E.tx,baseFS);E.tx.textContent='';
-  const iv=Math.max(8,1000/(+S.textSpeed||35));
-  tm=setInterval(()=>{ti++;E.tx.textContent=full.slice(0,ti);if(ti>=full.length){clearInterval(tm);typing=false;done();}},iv);}
+  lg(nm,t);E.nx.classList.remove('on');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');full=t;ti=0;
+  const fin=()=>{E.tx.textContent=full;fitText(E.tx,baseFS);typing=false;E.tx.classList.remove('kv-tx-shake');if(!stat)done();};
+  clearTimeout(tm);
+  const reveal=opt.reveal||'type';
+  if(reveal==='fade'&&!inst&&!skip&&!stat){typing=true;E.tx.textContent=full;fitText(E.tx,baseFS);E.tx.classList.add('kv-tx-fade');tm=setTimeout(()=>{typing=false;done();},320);return;}
+  if(inst||skip||stat||reveal==='instant'){fin();return;}
+  typing=true;E.tx.textContent=t;fitText(E.tx,baseFS);E.tx.textContent='';if(reveal==='shake')E.tx.classList.add('kv-tx-shake');
+  const cps=Math.max(1,+opt.speed||+S.textSpeed||35),base=Math.max(8,1000/cps);
+  const punct=opt.punct===undefined?S.punctWait!==false:String(opt.punct)!=='0';
+  const step=()=>{ti++;E.tx.textContent=full.slice(0,ti);if(ti>=full.length){typing=false;E.tx.classList.remove('kv-tx-shake');done();return;}
+   let extra=0;if(punct){const ch=full.charAt(ti-1);if(/[。！？!?]/.test(ch))extra=220;else if(/[、，,]/.test(ch))extra=100;else if(/[…‥]/.test(ch))extra=90;}
+   tm=setTimeout(step,base+extra);};
+  tm=setTimeout(step,base);}
  function done(){E.nx.classList.add('on');clearTimeout(at);
   if(skip)at=setTimeout(run,110);else if(auto)at=setTimeout(run,+S.autoWait||1400);}
  function choices(o){E.ch.innerHTML='';const t=TH[curTh]||{slots:{},font:null};
@@ -599,7 +625,7 @@ function createPlayer(root,pj,resolve,opts){
  function fin2(){opts.onEnd&&opts.onEnd({scene:SC[si]?.id,flags:{...flags}});root.dispatchEvent(new CustomEvent('adv:end',{detail:{scene:SC[si]?.id,flags:{...flags}}}));E.ed.classList.add('on');sbgm(800);}
  function ex(op){const a=op.args||{},id=a.id||a._;
   switch(op.cmd){
-   case 'msg':txt(op.speaker,String(op.text||'').replace(/\\n/g,'\n'));return 'w';
+   case 'msg':{const ma=op.args||{};let tx=String(op.text||'').replace(/\\n/g,'\n');if(ma.type==='say')tx='「'+tx.replace(/^「|」$/g,'')+'」';txt(op.speaker,tx,false,ma);return 'w';}
    case 'bg':setBG(id,a.fade,false);return;
    case 'cg':setBG(id,a.fade,true);return;
    case 'chara':show(a);return;
@@ -650,7 +676,7 @@ function createPlayer(root,pj,resolve,opts){
    if(pi>=s.ops.length){if(si+1<SC.length){goScene(si+1,run);return;}fin2();return;}
    const op=s.ops[pi++];if(ex(op)==='w'){blocked=!['msg','choice','doc'].includes(op.cmd);return;}}}
  function adv(){if(destroyed||blocked||modalPaused)return;if(E.ch.classList.contains('on'))return;
-  if(typing){clearInterval(tm);E.tx.textContent=full;typing=false;done();return;}clearTimeout(at);run();}
+  if(typing){clearTimeout(tm);E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent=full;typing=false;done();return;}clearTimeout(at);run();}
  E.kv.addEventListener('click',e=>{if(audioLocked&&bgm){bgm.play().then(()=>{audioLocked=false;bgm.volume=muted?0:.7;}).catch(()=>{});}const b=e.target.closest('button');
   if(b){const a=b.dataset.a;
    if(a==='auto'){auto=!auto;skip=false;b.classList.toggle('on',auto);q('[data-a=skip]').classList.remove('on');if(auto&&!typing)adv();}
@@ -663,9 +689,9 @@ function createPlayer(root,pj,resolve,opts){
     '<button class="mi" data-go="'+i+'">'+(i+1)+'. '+String(s.title||s.id).replace(/</g,'&lt;')+'</button>').join('');E.mn.classList.add('on');}
    else if(a==='mnx'){E.mn.classList.remove('on');modalPaused=false;if(pendingRun){pendingRun=false;run();}}
    else if(a==='mute'){muted=!muted;if(bgm)bgm.volume=muted?0:.7;}
-   else if(a==='restart'){E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearInterval(tm);E.ch.classList.remove('on');E.ed.classList.remove('on');si=0;pi=0;flags={};nmOv=null;curBG='';hide('all');setTheme(S.theme);run();}
+   else if(a==='restart'){E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);E.ch.classList.remove('on');E.ed.classList.remove('on');si=0;pi=0;flags={};nmOv=null;curBG='';hide('all');setTheme(S.theme);run();}
    else if(a==='exit'&&opts.onExit)opts.onExit();
-   if(b.dataset.go!==undefined){E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearInterval(tm);E.ch.classList.remove('on');hide('all');goScene(+b.dataset.go,run);}return;}
+   if(b.dataset.go!==undefined){E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);E.ch.classList.remove('on');hide('all');goScene(+b.dataset.go,run);}return;}
   if(stat)return;if(e.target.closest('.kv-lg,.kv-mn,.kv-ed,.kv-dc'))return;adv();});
  setTheme(S.theme);
  return {
@@ -675,14 +701,14 @@ function createPlayer(root,pj,resolve,opts){
    Object.keys(CE).forEach(k=>{CE[k].remove();delete CE[k];});
    nmOv=null;curBG='';E.b1.classList.remove('on');E.b2.classList.remove('on');E.ovl.style.opacity='0';
    E.dt.classList.remove('on');E.sy.classList.remove('on');E.nm.classList.remove('on');
-   E.tx.textContent='';E.cv.style.opacity='0';setTheme(sc.theme||S.theme);
+   E.kv.classList.remove('kv-narr-center','kv-narr-black');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent='';E.cv.style.opacity='0';setTheme(sc.theme||S.theme);
    for(let k=0;k<=i&&k<sc.ops.length;k++)ex(sc.ops[k]);
    const op=sc.ops[i];if(op&&op.cmd==='choice'){E.ch.innerHTML='';
     (op.opts||[]).forEach(x=>{const b=document.createElement('button');b.className='kv-cb';
      const sp=document.createElement('span');sp.textContent=x.text;b.appendChild(sp);
      const t=TH[curTh]||{slots:{}};applyWin(b,sp,t.slots.choice,MT,resolve,t.font,FN,{m:'0'});E.ch.appendChild(b);});
     E.ch.classList.add('on');}else E.ch.classList.remove('on');},
-  destroy(){sounds.forEach(a=>a.pause());sounds.clear();destroyed=true;timers.forEach(window.clearTimeout);timers.clear();clearInterval(tm);clearTimeout(at);clearTimeout(wt);sbgm(100);root.innerHTML='';}};}
+  destroy(){sounds.forEach(a=>a.pause());sounds.clear();destroyed=true;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);clearTimeout(at);clearTimeout(wt);sbgm(100);root.innerHTML='';}};}
 (function(){const s=document.createElement('style');s.textContent=PCSS;document.head.appendChild(s);})();
 
 /* ============ preview ============ */
@@ -705,9 +731,10 @@ function rScene(){
  rebuildPreview();hdr();}
 function cardHTML(op,i){
  const d=CMD[op.cmd];let ic='·',cls='',bd='',thumb='';
- if(op.cmd==='msg'){cls='msg'+(op.speaker?'':' nar');ic=op.speaker?'💬':'—';
-  bd='<div class="bd2">'+(op.speaker?'<div class="sp">'+esc(op.speaker)+'</div>':'')+
-   '<div class="tx">'+esc(String(op.text||'').replace(/\\n/g,'\n'))+'</div></div>';
+ if(op.cmd==='msg'){cls='msg'+(op.speaker?'':' nar');ic=op.speaker?'💬':'—';const ma=op.args||{},kind=ma.type||(op.speaker?'say':'narr');
+  let shown=String(op.text||'').replace(/\\n/g,'\n');if(ma.type==='say')shown='「'+shown.replace(/^「|」$/g,'')+'」';
+  const tags=[];if(ma.type)tags.push(kind==='say'?'セリフ':'地文');if(ma.speed)tags.push('速度 '+ma.speed+'字/秒');if(ma.reveal&&ma.reveal!=='type')tags.push({instant:'即時',fade:'フェード',shake:'震え'}[ma.reveal]||ma.reveal);if(ma.layout&&ma.layout!=='box')tags.push(ma.layout==='black'?'暗転中央':'中央表示');
+  bd='<div class="bd2">'+(op.speaker?'<div class="sp">'+esc(op.speaker)+'</div>':'')+'<div class="tx">'+esc(shown)+'</div>'+(tags.length?'<div class="ar">'+esc(tags.join(' ・ '))+'</div>':'')+'</div>';
   if(op.sid){const c=chara(op.sid);const f=c&&c.faces&&(c.faces.normal);if(f)thumb='<img class="th" src="'+th(f)+'">';}}
  else if(op.cmd==='blank'){return '';}
  else if(op.cmd==='note'){cls='';ic='//';bd='<div class="bd2"><div class="ar">'+esc(op.text)+'</div></div>';}
@@ -756,9 +783,8 @@ function palette(atLine){
   $$('#plC .chip').forEach(b=>b.onclick=()=>{$$('#plC .chip').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');draw(b.dataset.c);});
   draw('text');});}
 async function addLine(kind,atLine){
- if(kind==='say'){const cid=await pickChara();if(!cid)return;const c=chara(cid);
-  insAt(atLine,[c.name+'「」']);selectByLine(atLine);editOp(sel);return;}
- if(kind==='narr'){insAt(atLine,['']);const L=lines();L[atLine]='（地文）';setLines(L);push();selectByLine(atLine);editOp(sel);return;}
+ if(kind==='say'){const cid=await pickChara();if(!cid)return;insAt(atLine,[ser('msg',{type:'say',sid:cid,text:''})]);selectByLine(atLine);editOp(sel);return;}
+ if(kind==='narr'){insAt(atLine,[ser('msg',{type:'narr',text:''})]);selectByLine(atLine);editOp(sel);return;}
  if(kind==='choice'){insAt(atLine,['@choice','* 一緒に行く -> ','* やめておく -> ']);selectByLine(atLine);rScene();editOp(sel);return;}
  const d=CMD[kind];if(!d)return;
  const args={};d.f.forEach(f=>{if(f.d!==undefined)args[f.k]=f.d;});
@@ -798,26 +824,32 @@ async function editOp(i){
   $('#opDup').onclick=()=>{insAt(op.ln1+1,lines().slice(op.ln0,op.ln1+1));shClose();rScene();};
   $('#opDel').onclick=()=>{delOp(op);shClose();sel=Math.max(0,i-1);rScene();};});}
 function editMsg(op,i){
- const opts='<option value="">（地文）</option><option value="__custom__"'+(op.speaker&&!op.sid?' selected':'')+'>自由な話者名</option>'+P.characters.map(c=>
-  '<option value="'+esc(c.id)+'"'+(op.sid===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+ const a=op.args||{},kind=a.type||(op.speaker?'say':'narr');
+ const currentSid=a.sid||op.sid||(op.speaker?'__custom__':'');
+ const opts='<option value="__custom__"'+(currentSid==='__custom__'?' selected':'')+'>自由な話者名</option>'+P.characters.map(c=>
+  '<option value="'+esc(c.id)+'"'+(currentSid===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
  const raw=String(op.text||'').replace(/^「|」$/g,'').replace(/\\n/g,'\n');
- sheet('セリフ / 地文','<label class="f">話者</label><select id="msSp">'+opts+'</select>'+
-  '<label class="f">自由な話者名（自由な話者名を選んだ場合）</label><input type="text" id="msCustom" value="'+esc(op.speaker&&!op.sid?op.speaker:'')+'">'+
+ sheet('文章','<label class="f">文章種別</label><select id="msKind"><option value="say"'+(kind==='say'?' selected':'')+'>セリフ（「」あり）</option><option value="narr"'+(kind==='narr'?' selected':'')+'>地文（「」なし）</option></select>'+
+  '<div id="msSpeaker"><label class="f">話者</label><select id="msSp">'+opts+'</select><label class="f">自由な話者名</label><input type="text" id="msCustom" value="'+esc(a.speaker||(op.speaker&&!op.sid?op.speaker:''))+'"></div>'+
   '<label class="f">本文</label><textarea id="msTx" rows="5">'+esc(raw)+'</textarea>'+
-  '<div class="row" style="margin-top:7px"><button class="btn sm" id="msFace">この行で表情を変える</button>'+
-  '<button class="btn sm" id="msBr">改行を挿入</button></div>'+
-  '<div class="row" style="margin-top:11px"><button class="btn ac" style="flex:1" id="msOK">保存</button>'+
-  '<button class="btn sm" id="msDup">複製</button><button class="btn sm dg" id="msDel">削除</button></div>',()=>{
-  const build=()=>{const sid=$('#msSp').value,tx=$('#msTx').value.replace(/\n/g,'\\n');
-   if(sid==='__custom__')return '【'+($('#msCustom').value.trim()||'？？？').replace(/[【】]/g,'')+'】「'+tx+'」';if(!sid)return /^(@|\/\/)/.test(tx)?'\\'+tx:tx;const c=chara(sid);return c.name+'「'+tx+'」';};
+  '<label class="f">文字速度（文字/秒・空欄＝全体設定）</label><input type="number" id="msSpeed" min="1" max="240" step="1" placeholder="全体設定" value="'+esc(a.speed||'')+'">'+
+  '<label class="f">文字の出方</label><select id="msReveal"><option value=""'+(!a.reveal||a.reveal==='type'?' selected':'')+'>1文字ずつ（標準）</option><option value="instant"'+(a.reveal==='instant'?' selected':'')+'>即時表示</option><option value="fade"'+(a.reveal==='fade'?' selected':'')+'>フェード表示</option><option value="shake"'+(a.reveal==='shake'?' selected':'')+'>震えながら表示</option></select>'+
+  '<label class="f">句読点の間</label><select id="msPunct"><option value=""'+(a.punct===undefined?' selected':'')+'>全体設定に従う</option><option value="1"'+(String(a.punct)==='1'?' selected':'')+'>入れる</option><option value="0"'+(String(a.punct)==='0'?' selected':'')+'>入れない</option></select>'+
+  '<div id="msNarr"><label class="f">地文の表示</label><select id="msLayout"><option value="box"'+(!a.layout||a.layout==='box'?' selected':'')+'>会話ウィンドウ内</option><option value="center"'+(a.layout==='center'?' selected':'')+'>画面中央</option><option value="black"'+(a.layout==='black'?' selected':'')+'>暗転して中央</option></select></div>'+
+  '<div class="row" style="margin-top:7px"><button class="btn sm" id="msFace">この行で表情を変える</button><button class="btn sm" id="msBr">改行を挿入</button></div>'+
+  '<div class="row" style="margin-top:11px"><button class="btn ac" style="flex:1" id="msOK">保存</button><button class="btn sm" id="msDup">複製</button><button class="btn sm dg" id="msDel">削除</button></div>',()=>{
+  const sync=()=>{const say=$('#msKind').value==='say';$('#msSpeaker').style.display=say?'block':'none';$('#msNarr').style.display=say?'none':'block';$('#msFace').style.display=say?'':'none';};
+  $('#msKind').onchange=sync;sync();
+  const build=()=>{const type=$('#msKind').value,tx=$('#msTx').value.replace(/\n/g,'\\n'),na={type,text:tx};
+   if(type==='say'){const sid=$('#msSp').value;if(sid==='__custom__')na.speaker=($('#msCustom').value.trim()||'？？？').replace(/[【】「」]/g,'');else na.sid=sid;}
+   const speed=$('#msSpeed').value.trim();if(speed)na.speed=String(Math.max(1,Math.min(240,+speed||35)));
+   const reveal=$('#msReveal').value;if(reveal)na.reveal=reveal;const punct=$('#msPunct').value;if(punct!=='')na.punct=punct;
+   if(type==='narr'){const layout=$('#msLayout').value;if(layout&&layout!=='box')na.layout=layout;}
+   return ser('msg',na);};
   $('#msBr').onclick=()=>{const t=$('#msTx');const p=t.selectionStart;t.value=t.value.slice(0,p)+'\n'+t.value.slice(p);t.focus();};
-  $('#msFace').onclick=async()=>{const sid=$('#msSp').value;if(!sid||sid==='__custom__')return toast('表情を変えるには登録キャラを選んでください');
-   const draft=build();const f=await pickFace(sid);if(!f)return;repl(op,[draft]);
-   const L=lines();const prev=(L[op.ln0-1]||'').trim();
-   const line='@chara id='+sid+' face='+f;
-   if(/^@chara\s/.test(prev)&&new RegExp('id='+sid+'(\\s|$)').test(prev)){
-    const a=parseArgs(prev.slice(7));a.id=sid;a.face=f;L[op.ln0-1]=ser('chara',a);setLines(L);push();}
-   else insAt(op.ln0,[line]);
+  $('#msFace').onclick=async()=>{if($('#msKind').value!=='say')return toast('地文では表情変更を使いません');const sid=$('#msSp').value;if(!sid||sid==='__custom__')return toast('表情を変えるには登録キャラを選んでください');
+   const draft=build();const f=await pickFace(sid);if(!f)return;repl(op,[draft]);const L=lines();const prev=(L[op.ln0-1]||'').trim();const line='@chara id='+sid+' face='+f;
+   if(/^@chara\s/.test(prev)&&new RegExp('id='+sid+'(\\s|$)').test(prev)){const x=parseArgs(prev.slice(7));x.id=sid;x.face=f;L[op.ln0-1]=ser('chara',x);setLines(L);push();}else insAt(op.ln0,[line]);
    shClose();rScene();toast('表情変更を挿入しました');};
   $('#msOK').onclick=()=>{repl(op,[build()]);shClose();rScene();};
   $('#msDup').onclick=()=>{insAt(op.ln1+1,[build()]);shClose();rScene();};
@@ -1098,6 +1130,7 @@ function rConf(){
  $('#t-cf').innerHTML='<div class="card"><h3>基本設定</h3>'+
  '<label class="f">作品タイトル</label><input type="text" id="gT" value="'+esc(P.title||'')+'">'+
  '<label class="f">文字表示速度（文字/秒）</label><input type="number" id="gS" value="'+(P.settings.textSpeed||35)+'">'+
+ '<label class="f">句読点で自然な間を入れる</label><select id="gP"><option value="1"'+(P.settings.punctWait===false?'':' selected')+'>入れる</option><option value=""'+(P.settings.punctWait===false?' selected':'')+'>入れない</option></select>'+
  '<label class="f">AUTO待ち（ms）</label><input type="number" id="gA" value="'+(P.settings.autoWait||1400)+'">'+
  '<label class="f">会話UIの高さ（画面%）</label><input type="number" id="gH" value="'+(P.settings.msgH||30)+'">'+
  '<label class="f">既定UIテーマ</label><select id="gTh">'+P.themes.map(t=>'<option value="'+esc(t.id)+'"'+(P.settings.theme===t.id?' selected':'')+'>'+esc(t.name)+'</option>').join('')+'</select>'+
@@ -1111,7 +1144,7 @@ function rConf(){
  '<div class="card"><h3>バックアップ</h3><div class="sb">素材は端末内（IndexedDB）にあります。ブラウザのデータを消すと失われるので、定期的にフルバックアップZIPを保存してください。</div>'+
  '<div class="row" style="margin-top:8px"><button class="btn" id="bkUp">フルバックアップZIP</button></div></div>'+
  '<div class="card"><h3>初期化</h3><div class="row"><button class="btn dg" id="rst">シナリオを初期サンプルへ戻す</button></div></div>';
- $('#gOK').onclick=()=>{P.title=$('#gT').value.trim()||P.title;P.settings.textSpeed=+$('#gS').value||35;
+ $('#gOK').onclick=()=>{P.title=$('#gT').value.trim()||P.title;P.settings.textSpeed=+$('#gS').value||35;P.settings.punctWait=!!$('#gP').value;
   P.settings.autoWait=+$('#gA').value||1400;P.settings.msgH=Math.min(60,Math.max(18,+$('#gH').value||30));
   P.settings.theme=$('#gTh').value;P.settings.autoShrink=!!$('#gSh').value;push();rebuildPreview();toast('保存しました');};
  $('#eZip').onclick=expZip;$('#eHtml').onclick=expHtml;
@@ -1188,7 +1221,7 @@ function assetFields(op){const a=op.args||{},keys=[];if(['bg','cg','bgm','se'].i
 function assetRefs(id){const refs=[];P.scenes.forEach(s=>{if(parseScript(s.script,P.characters).ops.some(o=>assetFields(o).some(k=>o.args?.[k]===id)))refs.push('シーン：'+s.title);});P.characters.forEach(c=>Object.entries(c.faces||{}).forEach(([k,v])=>{if(v===id)refs.push(c.name+' / '+k);}));P.themes.forEach(t=>Object.entries(t.slots||{}).forEach(([k,v])=>{if(v===id)refs.push(t.name+' / '+k);}));return refs;}
 function replaceAssetRefs(oldId,newId){P.scenes.forEach(s=>{const ops=parseScript(s.script,P.characters).ops,L=s.script.split(/\r?\n/);ops.forEach(o=>{let changed=false;assetFields(o).forEach(k=>{if(o.args?.[k]===oldId){o.args[k]=newId;changed=true;}});if(changed)L[o.ln0]=ser(o.cmd,o.args);});s.script=L.join('\n');});P.characters.forEach(c=>Object.keys(c.faces||{}).forEach(k=>{if(c.faces[k]===oldId)c.faces[k]=newId;}));P.themes.forEach(t=>Object.keys(t.slots||{}).forEach(k=>{if(t.slots[k]===oldId)t.slots[k]=newId;}));}
 async function renameAsset(a,id,kind){if(!/^[\w-]+$/.test(id)||['__proto__','constructor','prototype'].includes(id))throw Error('IDは半角英数字・_・-で指定してください');const old=a.id,previous=JSON.stringify(P),next={...a,id,kind};await aPut(next);try{if(old!==id)replaceAssetRefs(old,id);if(!flushSave())throw Error('シナリオを保存できません');}catch(e){P=JSON.parse(previous);if(old!==id)await aDel(id);throw e;}Object.assign(a,next);if(old!==id){await aDel(old);if(UC.has(old))URL.revokeObjectURL(UC.get(old));UC.delete(old);}resetHistory();}
-function renameCharacter(c,newName){if(P.characters.some(x=>x!==c&&nkey(x.name)===nkey(newName)))throw Error('同じ表示名のキャラがいます');P.scenes.forEach(s=>{const L=s.script.split(/\r?\n/);parseScript(s.script,P.characters).ops.forEach(o=>{if(o.cmd==='msg'&&o.sid===c.id)L[o.ln0]=newName+'：'+o.text;});s.script=L.join('\n');});c.name=newName;}
+function renameCharacter(c,newName){if(P.characters.some(x=>x!==c&&nkey(x.name)===nkey(newName)))throw Error('同じ表示名のキャラがいます');P.scenes.forEach(s=>{const L=s.script.split(/\r?\n/);parseScript(s.script,P.characters).ops.forEach(o=>{if(o.cmd==='msg'&&o.sid===c.id){if(o.args&&o.args.type==='say'){o.args.sid=c.id;delete o.args.speaker;L[o.ln0]=ser('msg',o.args);}else L[o.ln0]=newName+'：'+o.text;}});s.script=L.join('\n');});c.name=newName;}
 function cardActions(ops){const el=$('#cardActions');el.innerHTML=[['add','＋追加'],['edit','編集'],['copy','複製'],['del','削除'],['up','↑'],['down','↓'],['find','検索'],['help','使い方']].map(([id,label])=>'<button class="btn sm" data-act="'+id+'">'+label+'</button>').join('');el.onclick=e=>{const a=e.target.dataset.act,o=ops[sel];if(a==='help')return helpStudio();if(a==='find')return findScript();if(a==='add')return palette(o?o.ln1+1:0);if(!o)return;if(a==='edit')return editOp(sel);if(a==='copy'){insAt(o.ln1+1,lines().slice(o.ln0,o.ln1+1));selectByLine(o.ln1+1);}if(a==='del'){if(!confirm('このカードを削除しますか？（元に戻せます）'))return;delOp(o);}if(a==='up'||a==='down')moveOp(ops,sel,a==='up'?-1:1);rScene();};}
 function findScript(){sheet('シナリオ内検索','<input id="findQ" type="text" placeholder="セリフ・人物名・素材ID"><div id="findResults"></div>',()=>{$('#findQ').oninput=()=>{const q=$('#findQ').value.trim();const found=[];if(q)P.scenes.forEach((s,si)=>parseScript(s.script,P.characters).ops.forEach((o,oi)=>{const line=s.script.split(/\r?\n/).slice(o.ln0,o.ln1+1).join(' ');if(line.toLowerCase().includes(q.toLowerCase()))found.push({si,oi,label:s.title+' / '+(o.ln0+1)+'行 '+line});}));$('#findResults').innerHTML=found.slice(0,100).map((x,i)=>'<button class="btn" style="display:block;margin:6px 0;text-align:left" data-hit="'+i+'">'+esc(x.label)+'</button>').join('')||'<p>一致する行はありません</p>';$$('[data-hit]').forEach(b=>b.onclick=()=>{const x=found[+b.dataset.hit];cs=x.si;sel=x.oi;shClose();tab('sc');});};});}
 function helpStudio(){sheet('制作の手順','<ol><li>最初に「設定 → バックアップZIPを復元」で同梱の starter_backup.zip を読み込みます。</li><li>「シナリオ」でカードを選び「編集」。文章は普通に入力し、背景・表情・演出は一覧から選びます。</li><li>「＋追加 → 進行」で選択肢、ラベル、ジャンプ、フラグを配置できます。</li><li>人物資料シートは「素材 → 切り出し」で個別化し「キャラ」で8表情に割り当てます。</li><li>「UI」で枠を選び、素材の「文字位置を調整」で余白を設定します。</li><li>▶で再生。「検証」で不足を確認し、設定から公開ZIPを書き出します。</li><li>制作後は必ずフルバックアップZIPを保存。別端末でも復元できます。</li></ol><p>シナリオJSONには画像・音声は含まれません。添付資料由来の文章は仮稿です。3Dゲーム本体はこのファイルには含まれません。</p>');}
