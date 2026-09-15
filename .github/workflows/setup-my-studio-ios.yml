@@ -1,0 +1,46 @@
+name: Setup my studio iOS icon
+
+on:
+  push:
+    paths:
+      - ".github/workflows/setup-my-studio-ios.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install icon and patch metadata
+        shell: bash
+        run: |
+          cat .github/tmp/icon.part0 .github/tmp/icon.part1 .github/tmp/icon.part2 .github/tmp/icon.part3 | base64 -d > apple-touch-icon.png
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('<title>暮石村 ADV STUDIO 2</title>', '<title>my studio</title>', 1)
+          marker = '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0d1014">'
+          insert = marker + '\n<meta name="apple-mobile-web-app-title" content="my studio">\n<meta name="application-name" content="my studio">\n<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">'
+          if 'apple-mobile-web-app-title' not in s:
+              if marker not in s:
+                  raise SystemExit('head marker not found')
+              s = s.replace(marker, insert, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit iOS home screen metadata
+        shell: bash
+        run: |
+          git config user.name "advstudio-fix-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html apple-touch-icon.png
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git commit -m "Set my studio iOS home screen icon"
+          git push
