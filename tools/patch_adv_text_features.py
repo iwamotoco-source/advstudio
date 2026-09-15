@@ -1,0 +1,174 @@
+from pathlib import Path
+
+path = Path('index.html')
+text = path.read_text(encoding='utf-8')
+
+
+def once(old, new, label):
+    global text
+    n = text.count(old)
+    if n != 1:
+        raise SystemExit(f'{label}: expected exactly one match, found {n}')
+    text = text.replace(old, new, 1)
+
+
+def between(start, end, new_body, label):
+    global text
+    a = text.find(start)
+    if a < 0:
+        raise SystemExit(f'{label}: start marker not found')
+    b = text.find(end, a + len(start))
+    if b < 0:
+        raise SystemExit(f'{label}: end marker not found')
+    text = text[:a] + new_body + text[b:]
+
+
+once(" settings:{textSpeed:35,autoWait:1400,msgH:30,theme:'normal',autoShrink:false},",
+     " settings:{textSpeed:35,autoWait:1400,msgH:30,theme:'normal',autoShrink:false,punctWait:true},",
+     'default settings')
+
+once("   const cmd=m[1].toLowerCase(),args=parseArgs(m[2]||'');\n   if(cmd==='label')",
+     "   const cmd=m[1].toLowerCase(),args=parseArgs(m[2]||'');\n   if(cmd==='msg'){const kind=String(args.type||'narr').toLowerCase();let sid=args.sid||null,sp=args.speaker||null;\n    if(kind==='say'&&sid){const c=(names||[]).find(x=>x.id===sid);if(c)sp=c.name;}\n    if(kind!=='say'){sid=null;sp=null;}\n    ops.push({cmd:'msg',speaker:sp,sid,text:String(args.text!==undefined?args.text:(args._||'')),args,ln0:i,ln1:i});continue;}\n   if(cmd==='label')",
+     'msg parser')
+
+once(" chara:{l:'立ち絵',i:'☻',c:'chara',f:[{k:'id',t:'chara',l:'キャラ'},{k:'face',t:'face',l:'表情'},{k:'pos',t:'sel',o:[['left','左'],['center','中央'],['right','右']],l:'位置'},{k:'scale',t:'num',l:'大きさ倍率(例1.0)'},{k:'asset',t:'asset',kinds:['chara'],l:'直接指定(任意)'}]},",
+     " chara:{l:'立ち絵',i:'☻',c:'chara',f:[{k:'id',t:'chara',l:'キャラ'},{k:'face',t:'face',l:'表情'},{k:'pos',t:'sel',o:[['left','左'],['center','中央'],['right','右']],l:'位置'},{k:'scale',t:'num',l:'大きさ倍率(例1.0)'},{k:'enter',t:'sel',o:[['fade','フェード'],['left','左から'],['right','右から'],['pop','ポップ'],['instant','即時']],l:'登場アニメ'},{k:'ms',t:'num',l:'登場時間(ms)',d:400},{k:'asset',t:'asset',kinds:['chara'],l:'直接指定(任意)'}]},",
+     'chara animation schema')
+
+css_anchor = ".kv-nx.on{opacity:1}@keyframes kvbl{0%,100%{opacity:.25}50%{opacity:1}}"
+css_add = css_anchor + "\n" + r""".kv.kv-narr-center .kv-mw{top:0;bottom:0;height:auto!important;min-height:0!important;justify-content:center;padding:8vh 10vw;z-index:8}
+.kv.kv-narr-center .kv-tp{display:none}
+.kv.kv-narr-center .kv-ms{flex:0 0 auto;min-height:0;max-height:60vh;background:transparent;border:0;box-shadow:none}
+.kv.kv-narr-center .kv-tx{position:relative!important;inset:auto!important;margin:0!important;padding:18px 20px;text-align:center;overflow:visible}
+.kv.kv-narr-black .kv-st{filter:brightness(0);transition:filter .2s}
+.kv-tx.kv-tx-fade{animation:kvtxtfade .32s ease-out}
+@keyframes kvtxtfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.kv-tx.kv-tx-shake{animation:kvtxtshake .12s steps(2) infinite}
+@keyframes kvtxtshake{0%,100%{transform:none}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}"""
+once(css_anchor, css_add, 'text presentation CSS')
+
+once("const S=Object.assign({textSpeed:35,autoWait:1400,msgH:30,theme:'normal'},pj.settings||{});",
+     "const S=Object.assign({textSpeed:35,autoWait:1400,msgH:30,theme:'normal',punctWait:true},pj.settings||{});",
+     'runtime defaults')
+
+between(" function show(a){", "\n function hide(id){", r""" function show(a){const id=a.id||a._;if(!id)return;const src=a.asset?resolve(a.asset):fsrc(id,a.face||'normal');
+  let e=CE[id];if(!e){e=document.createElement('img');e.className='kv-c';E.cs.appendChild(e);CE[id]=e;}
+  if(src)e.src=src;const p=a.pos||e.dataset.p||'center';e.dataset.p=p;
+  e.style.left={left:'26%',center:'50%',right:'74%'}[p]||p;
+  if(a.scale)e.style.height=(parseFloat(a.scale)*94)+'%';
+  const enter=a.enter||'fade',ms=Math.max(0,+a.ms||400),base='translateX(-50%)';
+  e.style.transitionProperty='opacity,transform';e.style.transitionDuration=(stat||enter==='instant')?'0s':(ms/1000)+'s';
+  if(stat||enter==='instant'){e.style.transform=base;e.style.opacity='1';return;}
+  e.style.opacity='0';
+  e.style.transform=enter==='left'?'translateX(calc(-50% - 56px))':enter==='right'?'translateX(calc(-50% + 56px))':enter==='pop'?base+' scale(.9)':base;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!destroyed){e.style.transform=base;e.style.opacity='1';}}));}""", 'show function')
+
+between(" function txt(sp,t,inst){", "\n function done(){", r""" function setTextLayout(kind,layout){const center=kind==='narr'&&(layout==='center'||layout==='black');E.kv.classList.toggle('kv-narr-center',center);E.kv.classList.toggle('kv-narr-black',kind==='narr'&&layout==='black');}
+ function txt(sp,t,inst,opt){opt=opt||{};const kind=opt.type||(sp?'say':'narr'),layout=opt.layout||'box';setTextLayout(kind,layout);
+  const nm=nmOv!==null?nmOv:(sp||'');
+  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');
+  const c=(pj.characters||[]).find(x=>x.name===sp);
+  if(c&&c.color&&!(TH[curTh]&&TH[curTh].slots.name))E.nmt.style.color=c.color;
+  lg(nm,t);E.nx.classList.remove('on');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');full=t;ti=0;
+  const fin=()=>{E.tx.textContent=full;fitText(E.tx,baseFS);typing=false;E.tx.classList.remove('kv-tx-shake');if(!stat)done();};
+  clearTimeout(tm);
+  const reveal=opt.reveal||'type';
+  if(reveal==='fade'&&!inst&&!skip&&!stat){typing=true;E.tx.textContent=full;fitText(E.tx,baseFS);E.tx.classList.add('kv-tx-fade');tm=setTimeout(()=>{typing=false;done();},320);return;}
+  if(inst||skip||stat||reveal==='instant'){fin();return;}
+  typing=true;E.tx.textContent=t;fitText(E.tx,baseFS);E.tx.textContent='';if(reveal==='shake')E.tx.classList.add('kv-tx-shake');
+  const cps=Math.max(1,+opt.speed||+S.textSpeed||35),base=Math.max(8,1000/cps);
+  const punct=opt.punct===undefined?S.punctWait!==false:String(opt.punct)!=='0';
+  const step=()=>{ti++;E.tx.textContent=full.slice(0,ti);if(ti>=full.length){typing=false;E.tx.classList.remove('kv-tx-shake');done();return;}
+   let extra=0;if(punct){const ch=full.charAt(ti-1);if(/[。！？!?]/.test(ch))extra=220;else if(/[、，,]/.test(ch))extra=100;else if(/[…‥]/.test(ch))extra=90;}
+   tm=setTimeout(step,base+extra);};
+  tm=setTimeout(step,base);}""", 'text renderer')
+
+once("   case 'msg':txt(op.speaker,String(op.text||'').replace(/\\\\n/g,'\\n'));return 'w';",
+     "   case 'msg':{const ma=op.args||{};let tx=String(op.text||'').replace(/\\\\n/g,'\\n');if(ma.type==='say')tx='「'+tx.replace(/^「|」$/g,'')+'」';txt(op.speaker,tx,false,ma);return 'w';}",
+     'runtime msg execution')
+
+n = text.count('clearInterval(tm)')
+if n < 1:
+    raise SystemExit('typing timer cleanup: no clearInterval(tm) found')
+text = text.replace('clearInterval(tm)', 'clearTimeout(tm)')
+text = text.replace("if(typing){clearTimeout(tm);E.tx.textContent=full;typing=false;done();return;}",
+                    "if(typing){clearTimeout(tm);E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent=full;typing=false;done();return;}")
+
+once(" if(kind==='say'){const cid=await pickChara();if(!cid)return;const c=chara(cid);\n  insAt(atLine,[c.name+'「」']);selectByLine(atLine);editOp(sel);return;}\n if(kind==='narr'){insAt(atLine,['']);const L=lines();L[atLine]='（地文）';setLines(L);push();selectByLine(atLine);editOp(sel);return;}",
+     " if(kind==='say'){const cid=await pickChara();if(!cid)return;insAt(atLine,[ser('msg',{type:'say',sid:cid,text:''})]);selectByLine(atLine);editOp(sel);return;}\n if(kind==='narr'){insAt(atLine,[ser('msg',{type:'narr',text:''})]);selectByLine(atLine);editOp(sel);return;}",
+     'new line creation')
+
+card_start = " if(op.cmd==='msg'){"
+card_end = "\n else if(op.cmd==='blank')"
+a = text.find(card_start, text.find('function cardHTML'))
+b = text.find(card_end, a)
+if a < 0 or b < 0:
+    raise SystemExit('message card block not found')
+card_new = r""" if(op.cmd==='msg'){cls='msg'+(op.speaker?'':' nar');ic=op.speaker?'💬':'—';const ma=op.args||{},kind=ma.type||(op.speaker?'say':'narr');
+  let shown=String(op.text||'').replace(/\\n/g,'\n');if(ma.type==='say')shown='「'+shown.replace(/^「|」$/g,'')+'」';
+  const tags=[];if(ma.type)tags.push(kind==='say'?'セリフ':'地文');if(ma.speed)tags.push('速度 '+ma.speed+'字/秒');if(ma.reveal&&ma.reveal!=='type')tags.push({instant:'即時',fade:'フェード',shake:'震え'}[ma.reveal]||ma.reveal);if(ma.layout&&ma.layout!=='box')tags.push(ma.layout==='black'?'暗転中央':'中央表示');
+  bd='<div class="bd2">'+(op.speaker?'<div class="sp">'+esc(op.speaker)+'</div>':'')+'<div class="tx">'+esc(shown)+'</div>'+(tags.length?'<div class="ar">'+esc(tags.join(' ・ '))+'</div>':'')+'</div>';
+  if(op.sid){const c=chara(op.sid);const f=c&&c.faces&&(c.faces.normal);if(f)thumb='<img class="th" src="'+th(f)+'">';}}"""
+text = text[:a] + card_new + text[b:]
+
+edit_start = "function editMsg(op,i){"
+edit_end = "\nfunction editChoice(op,i){"
+a = text.find(edit_start)
+b = text.find(edit_end, a)
+if a < 0 or b < 0:
+    raise SystemExit('editMsg markers not found')
+edit_new = r"""function editMsg(op,i){
+ const a=op.args||{},kind=a.type||(op.speaker?'say':'narr');
+ const currentSid=a.sid||op.sid||(op.speaker?'__custom__':'');
+ const opts='<option value="__custom__"'+(currentSid==='__custom__'?' selected':'')+'>自由な話者名</option>'+P.characters.map(c=>
+  '<option value="'+esc(c.id)+'"'+(currentSid===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+ const raw=String(op.text||'').replace(/^「|」$/g,'').replace(/\\n/g,'\n');
+ sheet('文章','<label class="f">文章種別</label><select id="msKind"><option value="say"'+(kind==='say'?' selected':'')+'>セリフ（「」あり）</option><option value="narr"'+(kind==='narr'?' selected':'')+'>地文（「」なし）</option></select>'+
+  '<div id="msSpeaker"><label class="f">話者</label><select id="msSp">'+opts+'</select><label class="f">自由な話者名</label><input type="text" id="msCustom" value="'+esc(a.speaker||(op.speaker&&!op.sid?op.speaker:''))+'"></div>'+
+  '<label class="f">本文</label><textarea id="msTx" rows="5">'+esc(raw)+'</textarea>'+
+  '<label class="f">文字速度（文字/秒・空欄＝全体設定）</label><input type="number" id="msSpeed" min="1" max="240" step="1" placeholder="全体設定" value="'+esc(a.speed||'')+'">'+
+  '<label class="f">文字の出方</label><select id="msReveal"><option value=""'+(!a.reveal||a.reveal==='type'?' selected':'')+'>1文字ずつ（標準）</option><option value="instant"'+(a.reveal==='instant'?' selected':'')+'>即時表示</option><option value="fade"'+(a.reveal==='fade'?' selected':'')+'>フェード表示</option><option value="shake"'+(a.reveal==='shake'?' selected':'')+'>震えながら表示</option></select>'+
+  '<label class="f">句読点の間</label><select id="msPunct"><option value=""'+(a.punct===undefined?' selected':'')+'>全体設定に従う</option><option value="1"'+(String(a.punct)==='1'?' selected':'')+'>入れる</option><option value="0"'+(String(a.punct)==='0'?' selected':'')+'>入れない</option></select>'+
+  '<div id="msNarr"><label class="f">地文の表示</label><select id="msLayout"><option value="box"'+(!a.layout||a.layout==='box'?' selected':'')+'>会話ウィンドウ内</option><option value="center"'+(a.layout==='center'?' selected':'')+'>画面中央</option><option value="black"'+(a.layout==='black'?' selected':'')+'>暗転して中央</option></select></div>'+
+  '<div class="row" style="margin-top:7px"><button class="btn sm" id="msFace">この行で表情を変える</button><button class="btn sm" id="msBr">改行を挿入</button></div>'+
+  '<div class="row" style="margin-top:11px"><button class="btn ac" style="flex:1" id="msOK">保存</button><button class="btn sm" id="msDup">複製</button><button class="btn sm dg" id="msDel">削除</button></div>',()=>{
+  const sync=()=>{const say=$('#msKind').value==='say';$('#msSpeaker').style.display=say?'block':'none';$('#msNarr').style.display=say?'none':'block';$('#msFace').style.display=say?'':'none';};
+  $('#msKind').onchange=sync;sync();
+  const build=()=>{const type=$('#msKind').value,tx=$('#msTx').value.replace(/\n/g,'\\n'),na={type,text:tx};
+   if(type==='say'){const sid=$('#msSp').value;if(sid==='__custom__')na.speaker=($('#msCustom').value.trim()||'？？？').replace(/[【】「」]/g,'');else na.sid=sid;}
+   const speed=$('#msSpeed').value.trim();if(speed)na.speed=String(Math.max(1,Math.min(240,+speed||35)));
+   const reveal=$('#msReveal').value;if(reveal)na.reveal=reveal;const punct=$('#msPunct').value;if(punct!=='')na.punct=punct;
+   if(type==='narr'){const layout=$('#msLayout').value;if(layout&&layout!=='box')na.layout=layout;}
+   return ser('msg',na);};
+  $('#msBr').onclick=()=>{const t=$('#msTx');const p=t.selectionStart;t.value=t.value.slice(0,p)+'\n'+t.value.slice(p);t.focus();};
+  $('#msFace').onclick=async()=>{if($('#msKind').value!=='say')return toast('地文では表情変更を使いません');const sid=$('#msSp').value;if(!sid||sid==='__custom__')return toast('表情を変えるには登録キャラを選んでください');
+   const draft=build();const f=await pickFace(sid);if(!f)return;repl(op,[draft]);const L=lines();const prev=(L[op.ln0-1]||'').trim();const line='@chara id='+sid+' face='+f;
+   if(/^@chara\s/.test(prev)&&new RegExp('id='+sid+'(\\s|$)').test(prev)){const x=parseArgs(prev.slice(7));x.id=sid;x.face=f;L[op.ln0-1]=ser('chara',x);setLines(L);push();}else insAt(op.ln0,[line]);
+   shClose();rScene();toast('表情変更を挿入しました');};
+  $('#msOK').onclick=()=>{repl(op,[build()]);shClose();rScene();};
+  $('#msDup').onclick=()=>{insAt(op.ln1+1,[build()]);shClose();rScene();};
+  $('#msDel').onclick=()=>{delOp(op);shClose();sel=Math.max(0,i-1);rScene();};});}"""
+text = text[:a] + edit_new + text[b:]
+
+once(" '<label class=\"f\">文字表示速度（文字/秒）</label><input type=\"number\" id=\"gS\" value=\"'+(P.settings.textSpeed||35)+'\">'+\n '<label class=\"f\">AUTO待ち（ms）</label>",
+     " '<label class=\"f\">文字表示速度（文字/秒）</label><input type=\"number\" id=\"gS\" value=\"'+(P.settings.textSpeed||35)+'\">'+\n '<label class=\"f\">句読点で自然な間を入れる</label><select id=\"gP\"><option value=\"1\"'+(P.settings.punctWait===false?'':' selected')+'>入れる</option><option value=\"\"'+(P.settings.punctWait===false?' selected':'')+'>入れない</option></select>'+\n '<label class=\"f\">AUTO待ち（ms）</label>",
+     'config punctuation UI')
+
+once(" $('#gOK').onclick=()=>{P.title=$('#gT').value.trim()||P.title;P.settings.textSpeed=+$('#gS').value||35;\n  P.settings.autoWait=+$('#gA').value||1400;",
+     " $('#gOK').onclick=()=>{P.title=$('#gT').value.trim()||P.title;P.settings.textSpeed=+$('#gS').value||35;P.settings.punctWait=!!$('#gP').value;\n  P.settings.autoWait=+$('#gA').value||1400;",
+     'config punctuation save')
+
+rename_start = "function renameCharacter(c,newName){"
+rename_end = "\nfunction cardActions(ops){"
+a = text.find(rename_start)
+b = text.find(rename_end, a)
+if a < 0 or b < 0:
+    raise SystemExit('renameCharacter markers not found')
+rename_new = r"""function renameCharacter(c,newName){if(P.characters.some(x=>x!==c&&nkey(x.name)===nkey(newName)))throw Error('同じ表示名のキャラがいます');P.scenes.forEach(s=>{const L=s.script.split(/\r?\n/);parseScript(s.script,P.characters).ops.forEach(o=>{if(o.cmd==='msg'&&o.sid===c.id){if(o.args&&o.args.type==='say'){o.args.sid=c.id;delete o.args.speaker;L[o.ln0]=ser('msg',o.args);}else L[o.ln0]=newName+'：'+o.text;}});s.script=L.join('\n');});c.name=newName;}"""
+text = text[:a] + rename_new + text[b:]
+
+once("   E.dt.classList.remove('on');E.sy.classList.remove('on');E.nm.classList.remove('on');\n   E.tx.textContent='';E.cv.style.opacity='0';setTheme(sc.theme||S.theme);",
+     "   E.dt.classList.remove('on');E.sy.classList.remove('on');E.nm.classList.remove('on');\n   E.kv.classList.remove('kv-narr-center','kv-narr-black');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent='';E.cv.style.opacity='0';setTheme(sc.theme||S.theme);",
+     'seek reset')
+
+path.write_text(text, encoding='utf-8')
