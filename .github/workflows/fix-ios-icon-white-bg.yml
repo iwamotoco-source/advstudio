@@ -1,0 +1,71 @@
+name: Fix iOS icon white background
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-ios-icon-white-bg.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pillow
+        run: python -m pip install pillow
+      - name: Fix apple touch icon
+        shell: bash
+        run: |
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+
+          p = Path('apple-touch-icon.png')
+          im = Image.open(p).convert('RGBA')
+
+          # Remove the baked-in white canvas around the artwork.
+          px = im.load()
+          for y in range(im.height):
+              for x in range(im.width):
+                  r,g,b,a = px[x,y]
+                  # generous threshold catches antialiased near-white fringe too
+                  if r >= 242 and g >= 242 and b >= 242:
+                      # fade fringe instead of a harsh cutoff
+                      m = min(r,g,b)
+                      alpha = max(0, min(255, int((248-m) * 42))) if m < 248 else 0
+                      px[x,y] = (r,g,b,alpha)
+
+          bbox = im.getbbox()
+          if not bbox:
+              raise SystemExit('icon became empty')
+          art = im.crop(bbox)
+
+          # Keep a small safety margin while making the icon full-bleed.
+          size = 180
+          margin = 3
+          target = size - margin*2
+          scale = min(target/art.width, target/art.height)
+          nw, nh = max(1, round(art.width*scale)), max(1, round(art.height*scale))
+          art = art.resize((nw,nh), Image.Resampling.LANCZOS)
+
+          # Opaque dark navy fill prevents iOS from supplying white behind transparency.
+          out = Image.new('RGBA', (size,size), (5,13,26,255))
+          out.alpha_composite(art, ((size-nw)//2, (size-nh)//2))
+          out = out.convert('RGB')
+          out.save(p, 'PNG', optimize=True)
+          PY
+
+      - name: Commit icon
+        shell: bash
+        run: |
+          git config user.name 'actions'
+          git config user.email 'actions@github.com'
+          git add apple-touch-icon.png
+          if git diff --cached --quiet; then
+            echo 'No changes'
+            exit 0
+          fi
+          git commit -m 'Fix iOS home screen icon white background'
+          git push
