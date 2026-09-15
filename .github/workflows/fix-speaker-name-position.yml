@@ -41,3 +41,5 @@ jobs:
           git add index.html
           git commit -m "Fix speaker name placement in dialogue frame"
           git push
+
+# one-time trigger
