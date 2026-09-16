@@ -246,7 +246,7 @@ function zipWrite(files){const enc=new TextEncoder(),ch=[],cd=[];let off=0;
 /* ============ project ============ */
 const FACES=[['normal','通常'],['smile','笑顔'],['angry','怒り'],['shy','照れ'],['sad','悲しみ'],['surprise','驚き'],['fear','恐怖'],['serious','真剣']];
 const FHINT={normal:/通常|平常|normal|default/i,smile:/笑顔|smile/i,happy:/嬉|happy/i,angry:/怒|angry/i,shy:/照|shy|blush/i,sad:/悲|泣|sad/i,surprise:/驚|surprise/i,fear:/恐|怖|fear/i,serious:/真剣|serious|真面目/i};
-const SLOTS=[['msg','会話ウィンドウ'],['name','名前欄'],['choice','選択肢'],['choiceSel','選択肢(選択中)'],['sys','システムメッセージ'],['log','ログ画面背景'],['doc','古文書・記録用紙'],['note','研究ノート'],['letter','日記・手紙'],['recall','回想オーバーレイ'],['erosion','侵食オーバーレイ']];
+const SLOTS=[['msg','会話ウィンドウ'],['choice','選択肢'],['choiceSel','選択肢(選択中)'],['sys','システムメッセージ'],['log','ログ画面背景'],['doc','古文書・記録用紙'],['note','研究ノート'],['letter','日記・手紙'],['recall','回想オーバーレイ'],['erosion','侵食オーバーレイ']];
 const SHINT={msg:/会話ウィンドウ|通常会話|文章ウィンドウ|msgwin|01_/,name:/名前欄|namebox|02_/,choice:/選択肢|choice|03_/,sys:/システムメッセージ|system|04_/,log:/ログ画面|log|07_/,doc:/古文書|記録用紙|08_/,note:/研究ノート|ノート|09_/,letter:/日記|手紙|10_/,recall:/回想|11_/,erosion:/侵食|12_/};
 const FONTS={mincho:['明朝','"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif'],
  gothic:['ゴシック','-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif'],
@@ -475,8 +475,8 @@ const PCSS=`
 @keyframes kvgl{0%,100%{filter:none}33%{filter:hue-rotate(-25deg) saturate(2) contrast(1.4)}66%{filter:invert(.12) blur(.6px)}}
 .kv-mw{position:absolute;left:0;right:0;bottom:0;padding:0 8px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;justify-content:flex-end;pointer-events:none}
 .kv-tp{display:flex;align-items:flex-end;gap:5px;pointer-events:auto;padding-bottom:2px}
-.kv-nm{flex:0 0 auto;display:none;align-items:center;justify-content:center;text-align:center;padding:4px 12px;font-size:14px;letter-spacing:.06em;background:linear-gradient(#1a2431e8,#0d141de8);border:1px solid #ffffff44;border-radius:6px;white-space:nowrap;background-size:100% 100%;font-family:serif}
-.kv-nm{position:absolute;z-index:5;left:16px;top:31px;pointer-events:none}.kv-nm.im span,.kv-cb.im span{display:flex;align-items:center;justify-content:center;overflow:hidden}.kv-ms{min-height:100px;max-height:100%;flex:1}.kv-nm.on{display:flex}.kv-nm.im{background-color:transparent;border:0;background-repeat:no-repeat}
+.kv-nm{position:absolute;z-index:5;left:3%;top:15%;width:34%;height:32%;display:none;align-items:center;justify-content:center;text-align:center;padding:0;font-size:14px;letter-spacing:.06em;background:none!important;border:0!important;border-radius:0;white-space:nowrap;font-family:serif;pointer-events:none}
+.kv-nm span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;overflow:hidden}.kv-cb.im span{display:flex;align-items:center;justify-content:center;overflow:hidden}.kv-ms{min-height:100px;max-height:100%;flex:1}.kv-nm.on{display:flex}
 .kv-tb{margin-left:auto;display:flex;gap:3px}
 .kv-tb button{background:#0d141de0;border:1px solid #ffffff33;color:#dbe6f2;border-radius:5px;font-size:10px;padding:5px 7px;font-family:sans-serif;letter-spacing:.06em}
 .kv-tb button.on{background:#2f6bb4;border-color:#7ab8ff;color:#fff}
@@ -534,9 +534,9 @@ function createPlayer(root,pj,resolve,opts){
   '<div class="kv-bg b1"></div><div class="kv-bg b2"></div><div class="kv-cs"></div><div class="kv-vg"></div>'+
   '<div class="kv-ovl"></div><div class="kv-dt"><div class="m"></div><div class="s"></div></div>'+
   '<div class="kv-tl"></div><div class="kv-sy"><span></span></div><div class="kv-fl"></div><div class="kv-cv"></div></div>'+
-  '<div class="kv-mw"><div class="kv-tp"><div class="kv-nm"><span></span></div><div class="kv-tb">'+
+  '<div class="kv-mw"><div class="kv-tp"><div class="kv-tb">'+
   '<button data-a="auto">AUTO</button><button data-a="skip">SKIP</button><button data-a="log">LOG</button><button data-a="menu">≡</button>'+
-  '</div></div><div class="kv-ms"><div class="kv-tx"></div><div class="kv-nx">▼</div></div></div>'+
+  '</div></div><div class="kv-ms"><div class="kv-nm"><span></span></div><div class="kv-tx"></div><div class="kv-nx">▼</div></div></div>'+
   '<div class="kv-ch"></div>'+
   '<div class="kv-lg"><div class="kv-in"></div><button class="kv-x" data-a="lgx">閉じる</button></div>'+
   '<div class="kv-mn"><div class="kv-in" data-r="sc"></div><button class="mi" data-a="mute">BGMミュート</button>'+
@@ -557,10 +557,9 @@ function createPlayer(root,pj,resolve,opts){
  function setTheme(id){const t=TH[id]||TH[S.theme]||(pj.themes||[])[0];if(!t)return;curTh=t.id;
   applyWin(E.ms,E.tx,t.slots.msg,MT,resolve,t.font,FN,null);
   baseFS=(t.font&&t.font.size)||16;
-  applyWin(E.nm,E.nmt,t.slots.name,MT,resolve,Object.assign({},t.nameFont,{lh:1.2}),FN,{m:'0'});
-  if(t.slots.name&&MT[t.slots.name]){const m=MT[t.slots.name];E.nm.style.height='';E.nm.style.width='';
-   E.nm.style.aspectRatio=m.w+'/'+m.h;E.nm.style.height='30px';E.nm.style.padding='0';}
-  else{E.nm.style.aspectRatio='';E.nm.style.height='';E.nm.style.padding='4px 12px';}
+  const nf=t.nameFont||{f:'mincho',size:14,color:'#fff'};
+  E.nmt.style.fontFamily=(FN[nf.f]||FN.mincho)[1];E.nmt.style.fontSize=(nf.size||14)+'px';E.nmt.style.lineHeight='1.2';
+  E.nmt.style.color=nf.color||'#fff';E.nmt.style.textShadow='0 2px 6px #000c';
   applyWin(E.sy,E.syt,t.slots.sys,MT,resolve,t.font,FN,{m:'0'});
   E.lg.style.backgroundImage=t.slots.log?'url('+resolve(t.slots.log)+')':'';
  }
@@ -598,7 +597,7 @@ function createPlayer(root,pj,resolve,opts){
   const nm=nmOv!==null?nmOv:(sp||'');
   E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');
   const c=(pj.characters||[]).find(x=>x.name===sp);
-  if(c&&c.color&&!(TH[curTh]&&TH[curTh].slots.name))E.nmt.style.color=c.color;
+  if(c&&c.color)E.nmt.style.color=c.color;
   lg(nm,t);E.nx.classList.remove('on');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');full=t;ti=0;
   const fin=()=>{E.tx.textContent=full;fitText(E.tx,baseFS);typing=false;E.tx.classList.remove('kv-tx-shake');if(!stat)done();};
   clearTimeout(tm);
