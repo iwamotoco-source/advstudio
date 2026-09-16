@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADV STUDIO 2.3.0 / Data Safety Phase 1.5 -->
+<!-- ADV STUDIO 2.4.0 / 2D Novel Editing Update -->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -111,12 +111,25 @@ code{background:#090c11;border:1px solid var(--ln);border-radius:4px;padding:1px
 #saveFailOverlay h2{font-size:15px;margin:0 0 8px;color:#ffb3c0}
 #saveFailOverlay p{font-size:12px;line-height:1.7;color:#dbe6f2;white-space:pre-wrap;word-break:break-word}
 @media(max-width:700px){input,select,textarea,#ta{font-size:16px!important}#saveState{font-size:10px;max-width:85px}#cardActions .btn{padding:8px}}
+/* Touch-first editing */
+.btn,.btn.sm,.btn.ico,.chip,nav button,#prevBar button,.ins button{min-height:44px;min-width:44px}
+.btn.ico{width:44px}.cc .mv{flex-direction:row}.cc .mv button{width:44px;height:44px}
+header{flex-wrap:wrap}header .tt{min-width:100px}#saveState,#backupAge{flex-shrink:0}
+select,input[type=text],input[type=number]{min-height:44px}
+#ovx{width:44px;height:44px}#sh{overscroll-behavior:contain}
+#cal{overflow:visible}#cal .region{position:absolute;border:2px dashed #7ab8ff;background:#7ab8ff22;touch-action:none;cursor:move}
+#cal .region.name{border-color:#ffd36f;background:#ffd36f22}
+#cal .region.active{outline:2px solid white;z-index:3}
+#cal .region span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;pointer-events:none;color:white;text-shadow:0 1px 3px black}
+#cal .sizeHandle{position:absolute;right:-12px;bottom:-12px;width:44px;height:44px;border-radius:50%;background:#2676bccc;border:2px solid white}
+.calnums{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+@media(max-height:600px){#prev{max-height:32%}#cardActions{max-height:100px;overflow:auto}}
 </style>
 </head>
 <body>
 <div id="app">
  <header>
-  <div class="tt" id="hdTitle">暮石村<small>ADV STUDIO 2.3.0</small></div>
+  <div class="tt" id="hdTitle">暮石村<small>ADV STUDIO 2.4.0</small></div>
   <button class="btn ico" id="bUndo">↶</button><button class="btn ico" id="bRedo">↷</button>
   <button class="btn ac" id="bPlay">▶ 再生</button>
  </header>
@@ -262,7 +275,7 @@ function zipWrite(files){const enc=new TextEncoder(),ch=[],cd=[];let off=0;
 /* ============ project ============ */
 const FACES=[['normal','通常'],['smile','笑顔'],['angry','怒り'],['shy','照れ'],['sad','悲しみ'],['surprise','驚き'],['fear','恐怖'],['serious','真剣']];
 const FHINT={normal:/通常|平常|normal|default/i,smile:/笑顔|smile/i,happy:/嬉|happy/i,angry:/怒|angry/i,shy:/照|shy|blush/i,sad:/悲|泣|sad/i,surprise:/驚|surprise/i,fear:/恐|怖|fear/i,serious:/真剣|serious|真面目/i};
-const SLOTS=[['msg','会話ウィンドウ'],['choice','選択肢'],['choiceSel','選択肢(選択中)'],['sys','システムメッセージ'],['log','ログ画面背景'],['doc','古文書・記録用紙'],['note','研究ノート'],['letter','日記・手紙'],['recall','回想オーバーレイ'],['erosion','侵食オーバーレイ']];
+const SLOTS=[['msg','会話ウィンドウ'],['narr','地の文用ウィンドウ（任意）'],['choice','選択肢'],['choiceSel','選択肢(選択中)'],['sys','システムメッセージ'],['log','ログ画面背景'],['doc','古文書・記録用紙'],['note','研究ノート'],['letter','日記・手紙'],['recall','回想オーバーレイ'],['erosion','侵食オーバーレイ']];
 const SHINT={msg:/会話ウィンドウ|通常会話|文章ウィンドウ|msgwin|01_/,name:/名前欄|namebox|02_/,choice:/選択肢|choice|03_/,sys:/システムメッセージ|system|04_/,log:/ログ画面|log|07_/,doc:/古文書|記録用紙|08_/,note:/研究ノート|ノート|09_/,letter:/日記|手紙|10_/,recall:/回想|11_/,erosion:/侵食|12_/};
 const FONTS={mincho:['明朝','"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif'],
  gothic:['ゴシック','-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif'],
@@ -311,7 +324,7 @@ const DEF={title:'暮石村',
 @fadeout ms=900
 @end`}]};
 let P=null,hist=[],hi=-1,cs=0,sel=0,mode='card',errs={};
-const STUDIO_VERSION='2.3.0',LS_PROJECT='kv_proj2',LS_EMERGENCY='kv_emergency2',LS_BACKUP_META='kv_backup_meta2',LS_IOS_NOTICE='kv_ios_home_notice2';
+const STUDIO_VERSION='2.4.0',LS_PROJECT='kv_proj2',LS_EMERGENCY='kv_emergency2',LS_BACKUP_META='kv_backup_meta2',LS_IOS_NOTICE='kv_ios_home_notice2';
 let storageMode='idb',projectMigrated=false,emergencyLoaded=false,emergencyRecoveryPending=false,freshProject=false,_sv=null,_savePromise=null,saveFailed=false,savePending=false,saveState='保存済',saveRev=0,savedRev=0,historyBusy=false;
 let backupWarned=false;
 function normalizeProject(o){
@@ -319,6 +332,7 @@ function normalizeProject(o){
  const p=JSON.parse(JSON.stringify(o));p.title=String(p.title||'暮石村');
  for(const key of ['scenes','characters','themes']){if(key!=='scenes'&&!Array.isArray(p[key]))p[key]=JSON.parse(JSON.stringify(DEF[key]));if(key==='themes'&&!p[key].length)p[key]=JSON.parse(JSON.stringify(DEF.themes));
  const ids=new Set();p[key].forEach((v,i)=>{if(!v||typeof v!=='object'||Array.isArray(v))throw Error(key+' のデータが不正です');v.id=String(v.id||key+'_'+(i+1));if(!/^[\w-]+$/.test(v.id)||['__proto__','constructor','prototype'].includes(v.id)||ids.has(v.id))throw Error('IDの重複または不正: '+v.id);ids.add(v.id);});}
+ p.projectId=p.projectId||('novel_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8));
  p.settings=Object.assign({},DEF.settings,p.settings||{});
  p.scenes.forEach(v=>{v.title=String(v.title||v.id);v.script=String(v.script||'');});
  p.characters.forEach(c=>{c.name=String(c.name||c.id);c.faces=c.faces&&typeof c.faces==='object'?c.faces:{};if(c.faces.happy&&!c.faces.smile)c.faces.smile=c.faces.happy;});
@@ -459,7 +473,8 @@ const CMD={
  jump:{l:'ジャンプ',i:'→',c:'flow',f:[{k:'_',t:'jump',l:'飛び先'}]},
  flag:{l:'フラグ操作',i:'⚐',c:'flow',f:[{k:'set',t:'text',l:'立てる'},{k:'clear',t:'text',l:'消す'},{k:'val',t:'text',l:'値'}]},
  if:{l:'条件分岐',i:'◇',c:'flow',f:[{k:'flag',t:'text',l:'フラグ名'},{k:'not',t:'sel',o:[['','あるとき'],['1','ないとき']],l:'条件'},{k:'jump',t:'jump',l:'飛び先'}]},
- end:{l:'シーン終了',i:'■',c:'flow',f:[]}
+ end:{l:'次のシーンへ（従来のシーン終了）',i:'→',c:'flow',f:[]},
+ finish:{l:'作品を終了（END）',i:'■',c:'flow',f:[{k:'text',t:'text',l:'エンディング名',d:'END'}]}
 };
 const CATOF=c=>(CMD[c]&&CMD[c].c)||'flow';
 
@@ -504,11 +519,12 @@ function pickTheme(){return new Promise(res=>{
 
 /* ============ runtime build ============ */
 function uiMeta(){const m={};AS.forEach(a=>{if(a.meta&&a.meta.w)m[a.id]={w:a.meta.w,h:a.meta.h,
- safe:a.meta.safe||null,fit:a.meta.fit||'aspect',slice:a.meta.slice||null};});return m;}
+ safe:a.meta.safe||null,nameArea:a.meta.nameArea||null,nameMode:a.meta.nameMode||'auto',nameAlign:a.meta.nameAlign||'center',fit:a.meta.fit||'aspect',slice:a.meta.slice||null};});return m;}
 function runtime(){const o=JSON.parse(JSON.stringify(P));o.uiMeta=uiMeta();o.fonts=FONTS;return o;}
 
 /* ============ player (exported as-is) ============ */
 const PCSS=`
+.kv,.kv *{box-sizing:border-box}
 .kv{position:absolute;inset:0;overflow:hidden;background:#000;color:#fff;user-select:none;-webkit-tap-highlight-color:transparent}
 .kv-st{position:absolute;inset:0;overflow:hidden;background:#05070a}
 .kv-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity .6s}
@@ -545,19 +561,19 @@ const PCSS=`
 .kv-tb button.on{background:#2f6bb4;border-color:#7ab8ff;color:#fff}
 .kv-ms{position:relative;pointer-events:auto;background:linear-gradient(#0f1720e6,#070b10f0);border:1px solid #ffffff3d;border-radius:7px;box-shadow:0 -4px 24px #0009;background-size:100% 100%;background-repeat:no-repeat;display:flex}
 .kv-ms.im{background-color:transparent;border:0;box-shadow:none}
-.kv-tx{position:relative;flex:1;white-space:pre-wrap;letter-spacing:.03em;overflow:hidden}
+.kv-tx{position:relative;flex:1;white-space:pre-wrap;letter-spacing:.03em;overflow:auto;overflow-wrap:anywhere;overscroll-behavior:contain;touch-action:pan-y}
 .kv-nx{position:absolute;right:7px;bottom:3px;font-size:11px;color:#9fb4c9;opacity:0;animation:kvbl 1.2s infinite}
 .kv-nx.on{opacity:1}@keyframes kvbl{0%,100%{opacity:.25}50%{opacity:1}}
 .kv.kv-narr-center .kv-mw{top:0;bottom:0;height:auto!important;min-height:0!important;justify-content:center;padding:8vh 10vw;z-index:8}
 .kv.kv-narr-center .kv-tp{display:none}
-.kv.kv-narr-center .kv-ms{flex:0 0 auto;min-height:0;max-height:60vh;background:transparent;border:0;box-shadow:none}
+.kv.kv-narr-center .kv-ms{flex:1 1 auto;min-height:0;height:100%;max-height:100%;background:transparent;border:0;box-shadow:none}
 .kv.kv-narr-center .kv-tx{position:relative!important;inset:auto!important;margin:0!important;padding:18px 20px;text-align:center;overflow:visible}
 .kv.kv-narr-black .kv-st{filter:brightness(0);transition:filter .2s}
 .kv-tx.kv-tx-fade{animation:kvtxtfade .32s ease-out}
 @keyframes kvtxtfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .kv-tx.kv-tx-shake{animation:kvtxtshake .12s steps(2) infinite}
 @keyframes kvtxtshake{0%,100%{transform:none}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
-.kv-ch{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 22px;display:none;flex-direction:column;gap:9px;z-index:20}
+.kv-ch{position:absolute;left:0;right:0;top:8%;bottom:38%;overflow-y:auto;justify-content:safe center;padding:8px 22px;display:none;flex-direction:column;gap:9px;z-index:20}
 .kv-ch.on{display:flex}
 .kv-cb{position:relative;background:linear-gradient(#182230ee,#0b1219ee);border:1px solid #ffffff55;color:#fff;border-radius:8px;font-family:serif;letter-spacing:.04em;background-size:100% 100%;background-repeat:no-repeat;display:flex;align-items:center;justify-content:center;text-align:center;padding:14px 12px;font-size:15px}
 .kv-cb.im{background-color:transparent;border:0}
@@ -572,6 +588,16 @@ const PCSS=`
 .kv-dc .pg{flex:1;overflow:auto;padding:26px 22px;font-family:serif;font-size:15px;line-height:2;color:#2b2318;white-space:pre-wrap}
 .kv-ed{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#000;z-index:40;letter-spacing:.35em;font-size:21px;font-family:serif}
 .kv-ed.on{display:flex}
+.kv-ms .kv-nm{position:absolute;max-width:none;margin:0;padding:0;background:none;border:0;border-radius:0;box-shadow:none;align-self:auto;justify-content:center}
+.kv-ms .kv-nm span{white-space:nowrap;text-align:inherit}
+.kv-nm[data-mode=hidden]{display:none!important}
+.kv-tb button,.kv-x,.kv-cb{min-height:44px;min-width:44px}
+.kv-mw{min-height:190px!important}.kv-ms{min-height:90px;flex:1 1 auto}
+.kv-page{font-size:11px;letter-spacing:0;color:#d1e3f6;margin-right:8px}
+.kv.kv-editor .kv-dt{right:60px}
+.kv .kv-tx ruby{ruby-align:center}.kv .kv-tx rt{font-size:.55em}
+@media(max-height:500px){.kv-mw{min-height:175px!important}.kv-tb button{padding:2px 6px}}
+
 `;
 function applyWin(el,txEl,assetId,meta,resolve,font,fonts,pad){
  const m=assetId?meta[assetId]:null,u=assetId?resolve(assetId):'';
@@ -588,8 +614,19 @@ function applyWin(el,txEl,assetId,meta,resolve,font,fonts,pad){
   txEl.style.fontFamily=ff;txEl.style.fontSize=(font.size||16)+'px';txEl.style.lineHeight=font.lh||1.85;
   txEl.style.color=font.color||'#fff';txEl.style.textShadow=font.shadow?'0 2px 6px #000c':'none';}
 }
-function fitText(box,base){if(!box)return;let s=base;box.style.fontSize=s+'px';let n=0;
- while(box.scrollHeight>box.clientHeight+1&&s>base*.6&&n<14){s-=.7;box.style.fontSize=s+'px';n++;}}
+function fitText(box,base){if(!box)return;box.style.fontSize=Math.max(14,Number(base)||16)+'px';}
+function splitNovelText(box,text){
+ const chars=Array.from(String(text));if(!chars.length)return [''];
+ if(box.clientHeight<20||box.clientWidth<20)return [String(text)];
+ const pages=[];let at=0;
+ while(at<chars.length){let lo=1,hi=chars.length-at,best=1;
+  while(lo<=hi){const n=(lo+hi)>>1;box.textContent=chars.slice(at,at+n).join('');
+   if(box.scrollHeight<=box.clientHeight+1&&box.scrollWidth<=box.clientWidth+1){best=n;lo=n+1;}else hi=n-1;}
+  if(best<chars.length-at&&best>12){const segment=chars.slice(at,at+best).join('');const cut=Math.max(segment.lastIndexOf('。'),segment.lastIndexOf('！'),segment.lastIndexOf('？'),segment.lastIndexOf('\n'));if(cut>segment.length*.65)best=Array.from(segment.slice(0,cut+1)).length;}
+  pages.push(chars.slice(at,at+best).join(''));at+=best;
+ }
+ box.textContent='';return pages;
+}
 function createPlayer(root,pj,resolve,opts){
  opts=opts||{};let destroyed=false,blocked=false,modalPaused=false,pendingRun=false;const timers=new Set();const setTimeout=(fn,ms)=>{const id=window.setTimeout(()=>{timers.delete(id);if(!destroyed)fn();},ms);timers.add(id);return id;};const clearTimeout=id=>{window.clearTimeout(id);timers.delete(id);};const S=Object.assign({textSpeed:35,autoWait:1400,msgH:30,theme:'normal',punctWait:true},pj.settings||{});
  const FN=pj.fonts||{mincho:['明朝','serif']},MT=pj.uiMeta||{};
@@ -599,11 +636,11 @@ function createPlayer(root,pj,resolve,opts){
   '<div class="kv-tl"></div><div class="kv-sy"><span></span></div><div class="kv-fl"></div><div class="kv-cv"></div></div>'+
   '<div class="kv-mw"><div class="kv-tp"><div class="kv-tb">'+
   '<button data-a="auto">AUTO</button><button data-a="skip">SKIP</button><button data-a="log">LOG</button><button data-a="menu">≡</button>'+
-  '</div></div><div class="kv-nm"><span></span></div><div class="kv-ms"><div class="kv-tx"></div><div class="kv-nx">▼</div></div></div>'+
+  '</div></div><div class="kv-nm"><span></span></div><div class="kv-ms"><div class="kv-tx"></div><div class="kv-nx"><span class="kv-page"></span>▼</div></div></div>'+
   '<div class="kv-ch"></div>'+
   '<div class="kv-lg"><div class="kv-in"></div><button class="kv-x" data-a="lgx">閉じる</button></div>'+
   '<div class="kv-mn"><div class="kv-in" data-r="sc"></div><button class="mi" data-a="mute">BGMミュート</button>'+
-  '<button class="mi" data-a="restart">最初から</button><button class="kv-x" data-a="mnx">閉じる</button></div>'+
+  '<button class="mi" data-a="save">進行をセーブ</button><button class="mi" data-a="load">セーブから再開</button><div class="kv-save-info" role="status"></div><button class="mi" data-a="restart">最初から</button><button class="kv-x" data-a="mnx">閉じる</button></div>'+
   '<div class="kv-dc"><div class="pg"></div><button class="kv-x" data-a="dcx">閉じる</button></div>'+
   '<div class="kv-ed"><div>END</div><button class="kv-x" data-a="exit">終了</button></div></div>';
  const q=s=>root.querySelector(s);
@@ -611,11 +648,15 @@ function createPlayer(root,pj,resolve,opts){
   tl:q('.kv-tl'),sy:q('.kv-sy'),syt:q('.kv-sy span'),fl:q('.kv-fl'),cv:q('.kv-cv'),mw:q('.kv-mw'),
   nm:q('.kv-nm'),nmt:q('.kv-nm span'),ms:q('.kv-ms'),tx:q('.kv-tx'),nx:q('.kv-nx'),ch:q('.kv-ch'),
   lg:q('.kv-lg'),lgi:q('.kv-lg .kv-in'),mn:q('.kv-mn'),sc:q('[data-r=sc]'),dc:q('.kv-dc'),dcp:q('.kv-dc .pg'),ed:q('.kv-ed')};
- E.mw.style.height=(S.msgH||30)+'%';E.mw.style.minHeight='140px';
+ E.kv.classList.toggle('kv-editor',!!opts.editor);if(!opts.onExit)q('[data-a=exit]').textContent='最初から';E.mw.style.height=(S.msgH||30)+'%';E.mw.style.minHeight='140px';
  const CH={};(pj.characters||[]).forEach(c=>CH[c.id]=c);
  const TH={};(pj.themes||[]).forEach(t=>TH[t.id]=t);
  const SC=(pj.scenes||[]).map(s=>{const p=parseScript(s.script,pj.characters||[]);return {id:s.id,title:s.title,ops:p.ops,labels:p.labels,theme:s.theme};});
  const CE={};let si=0,pi=0,flags=Object.assign({},opts.flags||{}),logs=[],nmOv=null,curTh=S.theme,typing=false,full='',ti=0,tm=null;
+ let lastTextSize='',pages=[],pageAt=0,pageOffset=0,message=null,visual={bg:null,chars:{},date:null,overlay:null,bgm:null,cover:null},messageWait=false;
+ const saveKey='adv_play_'+(pj.projectId||pj.title||'novel')+(opts.editor?'_test':'');
+ const signature=JSON.stringify([(pj.scenes||[]).map(x=>[x.id,x.script]),pj.characters,pj.themes]);
+ let sigHash=2166136261;for(let n=0;n<signature.length;n++)sigHash=Math.imul(sigHash^signature.charCodeAt(n),16777619)>>>0;
  const sounds=new Set();let audioLocked=false;let auto=false,skip=false,bgm=null,bgmId=null,muted=false,curBG='',top=false,at=null,wt=null,stat=!!opts.static,baseFS=16,advOverlapWarned=false;
  function advAssertNoOverlap(root){
   if(advOverlapWarned)return;const a=root.querySelector('.kv-nm'),b=root.querySelector('.kv-tx');
@@ -625,8 +666,19 @@ function createPlayer(root,pj,resolve,opts){
   const ov=!(r1.right<=r2.left||r1.left>=r2.right||r1.bottom<=r2.top||r1.top>=r2.bottom);
   if(ov){advOverlapWarned=true;console.warn('[ADV] 名前枠と本文が重なっています',r1,r2);if(typeof toast==='function')toast('描画不整合：名前枠と本文が重なっています');}
  }
+ function placeName(kind){
+  const t=TH[curTh]||{slots:{}},meta=MT[t.slots.msg]||{};
+  const mode=meta.nameMode==='hidden'?'hidden':(meta.nameMode==='separate'||!t.slots.msg?'separate':'embedded');
+  E.nm.dataset.mode=mode;E.nm.classList.toggle('on',kind==='say'&&!!E.nmt.textContent&&mode!=='hidden');
+  if(mode==='embedded'){
+   E.ms.appendChild(E.nm);const r=meta.nameArea||{x:3,y:0,w:29,h:22};
+   Object.assign(E.nm.style,{left:r.x+'%',top:r.y+'%',width:r.w+'%',height:r.h+'%',textAlign:meta.nameAlign||'center'});
+   E.nmt.style.fontSize=Math.max(10,Math.min(TH[curTh]?.nameFont?.size||14,E.nm.clientHeight*.65||14))+'px';
+  }else{E.mw.insertBefore(E.nm,E.ms);E.nm.removeAttribute('style');}
+ }
+ function messageWindow(kind){const t=TH[curTh]||{slots:{}};applyWin(E.ms,E.tx,kind==='narr'?(t.slots.narr||t.slots.msg):t.slots.msg,MT,resolve,t.font,FN,null);placeName(kind);}
  function setTheme(id){const t=TH[id]||TH[S.theme]||(pj.themes||[])[0];if(!t)return;curTh=t.id;
-  applyWin(E.ms,E.tx,t.slots.msg,MT,resolve,t.font,FN,null);
+  applyWin(E.ms,E.tx,t.slots.msg,MT,resolve,t.font,FN,null);placeName(message?.opt?.type||'say');
   baseFS=(t.font&&t.font.size)||16;
   const nf=t.nameFont||{f:'mincho',size:14,color:'#fff'};
   E.nmt.style.fontFamily=(FN[nf.f]||FN.mincho)[1];E.nmt.style.fontSize=(nf.size||14)+'px';E.nmt.style.lineHeight='1.2';
@@ -634,68 +686,78 @@ function createPlayer(root,pj,resolve,opts){
   applyWin(E.sy,E.syt,t.slots.sys,MT,resolve,t.font,FN,{m:'0'});
   E.lg.style.backgroundImage=t.slots.log?'url('+resolve(t.slots.log)+')':'';
  }
- function setBG(id,fade,clr){const u=resolve(id);if(!u||curBG===u)return;curBG=u;
-  const s=top?E.b1:E.b2,h=top?E.b2:E.b1;top=!top;const d=((+fade||600)/1000)+'s';
+ function setBG(id,fade,clr){visual.bg={id,fade:0};if(clr)hide('all');const u=resolve(id);if(!u||curBG===u)return;curBG=u;
+  const s=top?E.b1:E.b2,h=top?E.b2:E.b1;top=!top;const d=((fade===undefined?600:Math.max(0,+fade||0))/1000)+'s';
   s.style.transitionDuration=stat?'0s':d;h.style.transitionDuration=stat?'0s':d;
   s.style.backgroundImage='url('+u+')';s.classList.add('on');h.classList.remove('on');if(clr)hide('all');}
  function fsrc(cid,f){const c=CH[cid];if(!c)return resolve(cid);const x=c.faces||{};
   return resolve(x[f]||x.normal||Object.values(x).filter(Boolean)[0]||'');}
  function show(a){const id=a.id||a._;if(!id)return;const src=a.asset?resolve(a.asset):fsrc(id,a.face||'normal');
-  let e=CE[id];if(!e){e=document.createElement('img');e.className='kv-c';E.cs.appendChild(e);CE[id]=e;}
+  visual.chars[id]=Object.assign({},visual.chars[id]||{},a,{id});let e=CE[id];const continuing=!!e&&e.style.opacity!=='0';if(!e){e=document.createElement('img');e.className='kv-c';E.cs.appendChild(e);CE[id]=e;}
   if(src)e.src=src;const p=a.pos||e.dataset.p||'center';e.dataset.p=p;
   e.style.left={left:'26%',center:'50%',right:'74%'}[p]||p;
   if(a.scale)e.style.height=(parseFloat(a.scale)*94)+'%';
-  const enter=a.enter||'fade',ms=Math.max(0,+a.ms||400),base='translateX(-50%)';
+  const enter=a.enter||(continuing?'instant':'fade'),ms=Math.max(0,+a.ms||400),base='translateX(-50%)';
   e.style.transitionProperty='opacity,transform';e.style.transitionDuration=(stat||enter==='instant')?'0s':(ms/1000)+'s';
   if(stat||enter==='instant'){e.style.transform=base;e.style.opacity='1';return;}
   e.style.opacity='0';
   e.style.transform=enter==='left'?'translateX(calc(-50% - 56px))':enter==='right'?'translateX(calc(-50% + 56px))':enter==='pop'?base+' scale(.9)':base;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!destroyed){e.style.transform=base;e.style.opacity='1';}}));}
- function hide(id){if(!id||id==='all'){Object.keys(CE).forEach(k=>CE[k].style.opacity='0');return;}if(CE[id])CE[id].style.opacity='0';}
+ function hide(id){if(!id||id==='all'){visual.chars={};Object.keys(CE).forEach(k=>CE[k].style.opacity='0');return;}delete visual.chars[id];if(CE[id])CE[id].style.opacity='0';}
  function fv(a,to,ms,cb){if(!a)return cb&&cb();const f=a.volume,s=performance.now();
   (function l(t){const k=Math.min(1,((t||s)-s)/(ms||500));try{a.volume=Math.max(0,Math.min(1,f+(to-f)*k));}catch(e){}
    if(destroyed){a.pause();return;}if(k<1)requestAnimationFrame(l);else cb&&cb();})(s);}
- function pbgm(id,v,lp){if(stat)return;const u=resolve(id);if(!u||bgmId===id)return;
+ function pbgm(id,v,lp){visual.bgm={id,v,lp};if(stat)return;const u=resolve(id);if(!u||bgmId===id)return;
   const o=bgm;if(o)fv(o,0,400,()=>{try{o.pause();}catch(e){}});
   bgm=new Audio(u);bgm.loop=lp!=='0';bgm.volume=0;bgmId=id;
   const current=bgm;current.play().then(()=>fv(current,muted?0:(v!==undefined?+v:.7),700)).catch(()=>{audioLocked=true;sysmsg('音声を再開するには画面をタップ');});}
- function sbgm(ms){const b=bgm;bgm=null;bgmId=null;if(b)fv(b,0,+ms||600,()=>{try{b.pause();}catch(e){}});}
+ function sbgm(ms){visual.bgm=null;const b=bgm;bgm=null;bgmId=null;if(b&&ms===0){b.pause();return;}if(b)fv(b,0,+ms||600,()=>{try{b.pause();}catch(e){}});}
  function pse(id,v){if(stat)return;const u=resolve(id);if(!u)return;const a=new Audio(u);a.volume=muted?0:(v!==undefined?+v:.9);sounds.add(a);a.onended=()=>sounds.delete(a);a.play().catch(()=>{sounds.delete(a);audioLocked=true;});}
  function sysmsg(t){E.syt.textContent=t;E.sy.classList.add('on');if(!stat)setTimeout(()=>E.sy.classList.remove('on'),2400);}
  function lg(sp,t){logs.push({sp:sp||'',t});if(logs.length>400)logs.shift();}
  function setTextLayout(kind,layout){const center=kind==='narr'&&(layout==='center'||layout==='black');E.kv.classList.toggle('kv-narr-center',center);E.kv.classList.toggle('kv-narr-black',kind==='narr'&&layout==='black');}
- function txt(sp,t,inst,opt){opt=opt||{};const kind=opt.type||(sp?'say':'narr'),layout=opt.layout||'box';setTextLayout(kind,layout);
-  const nm=nmOv!==null?nmOv:(sp||'');
-  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');advAssertNoOverlap(root);
-  const c=(pj.characters||[]).find(x=>x.name===sp);
-  if(c&&c.color)E.nmt.style.color=c.color;
-  lg(nm,t);E.nx.classList.remove('on');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');full=t;ti=0;
-  const fin=()=>{E.tx.textContent=full;fitText(E.tx,baseFS);typing=false;E.tx.classList.remove('kv-tx-shake');if(!stat)done();};
-  clearTimeout(tm);
-  const reveal=opt.reveal||'type';
-  if(reveal==='fade'&&!inst&&!skip&&!stat){typing=true;E.tx.textContent=full;fitText(E.tx,baseFS);E.tx.classList.add('kv-tx-fade');tm=setTimeout(()=>{typing=false;done();},320);return;}
-  if(inst||skip||stat||reveal==='instant'){fin();return;}
-  typing=true;E.tx.textContent=t;fitText(E.tx,baseFS);E.tx.textContent='';if(reveal==='shake')E.tx.classList.add('kv-tx-shake');
-  const cps=Math.max(1,+opt.speed||+S.textSpeed||35),base=Math.max(8,1000/cps);
+ function txt(sp,t,inst,opt){
+  opt=opt||{};const kind=opt.type||(sp?'say':'narr');message={sp,t,opt:{...opt,type:kind}};messageWait=true;
+  setTextLayout(kind,opt.layout||'box');E.nmt.textContent=nmOv!==null?nmOv:(sp||'');messageWindow(kind);
+  const c=(pj.characters||[]).find(x=>x.name===sp),nf=(TH[curTh]||{}).nameFont||{};
+  E.nmt.style.color=c?.color||nf.color||'#fff';
+  if(!opt._restoring)lg(E.nmt.textContent,t);
+  fitText(E.tx,baseFS);lastTextSize=E.tx.clientWidth+'x'+E.tx.clientHeight;pages=splitNovelText(E.tx,t);pageAt=0;pageOffset=0;renderPage(inst);
+ }
+ function renderPage(inst){
+  clearTimeout(tm);clearTimeout(at);E.nx.classList.remove('on');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.scrollTop=0;
+  full=pages[pageAt]||'';ti=0;const opt=message.opt,chars=Array.from(full);
+  const pg=E.nx.querySelector('.kv-page');pg.textContent=pages.length>1?(pageAt+1)+' / '+pages.length:'';
+  const finish=()=>{E.tx.textContent=full;typing=false;E.tx.classList.remove('kv-tx-shake');if(!stat)done();else E.nx.classList.add('on');};
+  if(inst||skip||stat||opt.reveal==='instant'){finish();return;}
+  if(opt.reveal==='fade'){E.tx.textContent=full;typing=true;E.tx.classList.add('kv-tx-fade');tm=setTimeout(finish,320);return;}
+  typing=true;E.tx.textContent='';if(opt.reveal==='shake')E.tx.classList.add('kv-tx-shake');
+  const base=Math.max(8,1000/Math.max(1,+opt.speed||+S.textSpeed||35));
   const punct=opt.punct===undefined?S.punctWait!==false:String(opt.punct)!=='0';
-  const step=()=>{ti++;E.tx.textContent=full.slice(0,ti);if(ti>=full.length){typing=false;E.tx.classList.remove('kv-tx-shake');done();return;}
-   let extra=0;if(punct){const ch=full.charAt(ti-1);if(/[。！？!?]/.test(ch))extra=220;else if(/[、，,]/.test(ch))extra=100;else if(/[…‥]/.test(ch))extra=90;}
-   tm=setTimeout(step,base+extra);};
-  tm=setTimeout(step,base);}
- function done(){E.nx.classList.add('on');clearTimeout(at);
-  if(skip)at=setTimeout(run,110);else if(auto)at=setTimeout(run,+S.autoWait||1400);}
- function choices(o){E.ch.innerHTML='';const t=TH[curTh]||{slots:{},font:null};
+  const step=()=>{if(modalPaused){tm=setTimeout(step,80);return;}ti++;E.tx.textContent=chars.slice(0,ti).join('');if(ti>=chars.length){finish();return;}
+   const c=chars[ti-1],extra=!punct?0:/[。！？!?]/.test(c)?220:/[、，,]/.test(c)?100:/[…‥]/.test(c)?90:0;tm=setTimeout(step,base+extra);};tm=setTimeout(step,base);
+ }
+ function done(){E.nx.classList.add('on');clearTimeout(at);if(skip)at=setTimeout(adv,110);else if(auto)at=setTimeout(adv,+S.autoWait||1400);}
+ function repaginate(){if(!message||!messageWait)return;const oldOffset=pages.slice(0,pageAt).join('').length;
+  clearTimeout(tm);fitText(E.tx,baseFS);pages=splitNovelText(E.tx,message.t);let n=0;pageAt=0;
+  for(let i=0;i<pages.length;i++){if(n<=oldOffset)pageAt=i;n+=pages[i].length;}renderPage(true);
+ }
+ const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(()=>{const size=E.tx.clientWidth+'x'+E.tx.clientHeight;if(!destroyed&&size!==lastTextSize){lastTextSize=size;repaginate();}}):null;
+ if(ro)ro.observe(E.tx);
+
+ function sizeChoice(b,sp,asset){const m=MT[asset],safe=m?.safe||{t:12,b:14};if(m)b.style.minHeight=Math.max(44,Math.ceil(sp.scrollHeight/Math.max(.1,1-(safe.t+safe.b)/100)))+'px';}
+ function choices(o){messageWait=false;clearTimeout(at);E.nx.classList.remove('on');E.ch.style.bottom=(Math.max(0,E.kv.getBoundingClientRect().bottom-E.mw.getBoundingClientRect().top)+8)+'px';E.ch.innerHTML='';const t=TH[curTh]||{slots:{},font:null};
   o.forEach(x=>{const b=document.createElement('button');b.className='kv-cb';
    const sp=document.createElement('span');sp.textContent=x.text;b.appendChild(sp);
    applyWin(b,sp,t.slots.choice,MT,resolve,t.font,FN,{m:'0'});if(t.slots.choiceSel){const active=()=>applyWin(b,sp,t.slots.choiceSel,MT,resolve,t.font,FN,{m:'0'}),normal=()=>applyWin(b,sp,t.slots.choice,MT,resolve,t.font,FN,{m:'0'});b.onpointerenter=b.onfocus=active;b.onpointerleave=b.onblur=normal;}
    b.onclick=ev=>{ev.stopPropagation();E.ch.classList.remove('on');lg('選択','→ '+x.text);
     if(x.target&&x.target!=='-')jmp(x.target);run();};
-   E.ch.appendChild(b);});E.ch.classList.add('on');}
+   E.ch.appendChild(b);requestAnimationFrame(()=>{if(!destroyed)sizeChoice(b,sp,t.slots.choice);});});E.ch.classList.add('on');}
  function jmp(t){if(!t)return;if(t[0]==='#'){const L=SC[si]&&SC[si].labels;if(L&&L[t.slice(1)]!==undefined){pi=L[t.slice(1)];return;}}
-  const i=SC.findIndex(s=>s.id===t||s.title===t);if(i>=0){si=i;pi=0;curBG='';}}
+  const i=SC.findIndex(s=>s.id===t||s.title===t);if(i>=0){si=i;pi=0;curBG='';setTheme(SC[i].theme||S.theme);}}
  function goScene(i,cb){E.cv.style.transitionDuration='.4s';E.cv.style.opacity='1';
   setTimeout(()=>{si=i;pi=0;curBG='';setTheme(SC[i].theme||S.theme);E.cv.style.opacity='0';setTimeout(cb,260);},430);}
- function fin2(){opts.onEnd&&opts.onEnd({scene:SC[si]?.id,flags:{...flags}});root.dispatchEvent(new CustomEvent('adv:end',{detail:{scene:SC[si]?.id,flags:{...flags}}}));E.ed.classList.add('on');sbgm(800);}
+ function fin2(title){messageWait=false;clearTimeout(at);clearTimeout(tm);typing=false;E.ed.firstElementChild.textContent=title||'END';opts.onEnd&&opts.onEnd({scene:SC[si]?.id,flags:{...flags}});root.dispatchEvent(new CustomEvent('adv:end',{detail:{scene:SC[si]?.id,flags:{...flags}}}));E.ed.classList.add('on');sbgm(800);}
  function ex(op){const a=op.args||{},id=a.id||a._;
   switch(op.cmd){
    case 'msg':{const ma=op.args||{},kind=String(ma.type||(op.speaker?'say':'narr')).toLowerCase();let tx=String(op.text||'').replace(/\\n/g,'\n');if(kind==='say')tx='「'+tx.replace(/^「|」$/g,'')+'」';else if(kind==='narr')tx=tx.replace(/^「([\s\S]*)」$/,'$1');txt(op.speaker,tx,false,Object.assign({},ma,{type:kind}));return 'w';}
@@ -710,11 +772,11 @@ function createPlayer(root,pj,resolve,opts){
    case 'horror':setTheme((a._||'on')==='off'?S.theme:'horror');return;
    case 'name':{const v=a.text||a._||'';nmOv=(v==='off'||!v)?null:v;
     if(nmOv!==null){E.nmt.textContent=nmOv;E.nm.classList.add('on');}return;}
-   case 'date':{const v=a.text||a._||'';if(v==='off'){E.dt.classList.remove('on');return;}
+   case 'date':{visual.date={...a};const v=a.text||a._||'';if(v==='off'){E.dt.classList.remove('on');return;}
     E.dt.querySelector('.m').textContent=v;E.dt.querySelector('.s').textContent=a.sub||'';E.dt.classList.add('on');return;}
    case 'sys':sysmsg(a.text||a._||'');return;
    case 'item':sysmsg(a.text||a._||'');return;
-   case 'overlay':{const as=a.asset||a._;if(!as||as==='off'){E.ovl.style.opacity='0';return;}
+   case 'overlay':{visual.overlay={...a};const as=a.asset||a._;if(!as||as==='off'){E.ovl.style.opacity='0';return;}
     const u=resolve(as);if(!u)return;E.ovl.style.backgroundImage='url('+u+')';
     E.ovl.style.mixBlendMode=a.blend||'normal';E.ovl.style.transitionDuration=stat?'0s':((+a.ms||600)/1000)+'s';
     E.ovl.style.opacity=a.opacity!==undefined?a.opacity:.6;return;}
@@ -723,7 +785,7 @@ function createPlayer(root,pj,resolve,opts){
    case 'flash':if(!stat){E.fl.style.background=a.color||'#fff';E.fl.style.opacity='1';
     setTimeout(()=>E.fl.style.opacity='0',+a.ms||220);}return;
    case 'glitch':if(!stat){E.kv.classList.add('kv-gl');setTimeout(()=>E.kv.classList.remove('kv-gl'),+a.ms||600);}return;
-   case 'flag':if(a.set)flags[a.set]=a.val||'1';if(a.clear)delete flags[a.clear];if(!stat)root.dispatchEvent(new CustomEvent('adv:flags',{detail:{...flags}}));return;
+   case 'flag':if(a.set){if(['0','false','off'].includes(String(a.val).toLowerCase()))delete flags[a.set];else flags[a.set]=a.val||'1';}if(a.clear)delete flags[a.clear];if(!stat)root.dispatchEvent(new CustomEvent('adv:flags',{detail:{...flags}}));return;
    case 'if':{const h=!!flags[a.flag||a._];if((a.not?!h:h)&&a.jump)jmp(a.jump);return;}
    case 'jump':case 'goto':jmp(a.target||a._);return;
    case 'label':case 'note':case 'blank':return;
@@ -742,52 +804,64 @@ function createPlayer(root,pj,resolve,opts){
     setTimeout(()=>{let pv='';if(e&&a.to){pv=e.src;const s=fsrc(a.to,'normal')||resolve(a.to);if(s)e.src=s;}
      E.cv.style.opacity='0';setTimeout(()=>{E.cv.style.opacity='1';
       setTimeout(()=>{if(e&&pv)e.src=pv;E.cv.style.opacity='0';setTimeout(run,160);},100);},ms);},100);return 'w';}
+   case 'finish':{fin2(a.text||a._||'END');return 'w';}
    case 'end':{if(si+1<SC.length)goScene(si+1,run);else fin2();return 'w';}
    default:return;}}
- function run(){if(destroyed)return;if(modalPaused){pendingRun=true;return;}blocked=false;let g=0;while(true){if(++g>20000){fin2();return;}const s=SC[si];
+ function run(){if(destroyed||E.ed.classList.contains('on'))return;messageWait=false;if(modalPaused){pendingRun=true;return;}blocked=false;let g=0;while(true){if(++g>20000){fin2();return;}const s=SC[si];
    if(!s){fin2();return;}
    if(pi>=s.ops.length){if(si+1<SC.length){goScene(si+1,run);return;}fin2();return;}
-   const op=s.ops[pi++];if(ex(op)==='w'){blocked=!['msg','choice','doc'].includes(op.cmd);return;}}}
+   const op=s.ops[pi++];if(['fadeout','fadein'].includes(op.cmd))visual.cover={cmd:op.cmd,args:{...op.args}};if(ex(op)==='w'){blocked=!['msg','choice','doc'].includes(op.cmd);return;}}}
  function adv(){if(destroyed||blocked||modalPaused)return;if(E.ch.classList.contains('on'))return;
-  if(typing){clearTimeout(tm);E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent=full;typing=false;done();return;}clearTimeout(at);run();}
- E.kv.addEventListener('click',e=>{if(audioLocked&&bgm){bgm.play().then(()=>{audioLocked=false;bgm.volume=muted?0:.7;}).catch(()=>{});}const b=e.target.closest('button');
+  if(typing){clearTimeout(tm);E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent=full;typing=false;done();return;}clearTimeout(at);if(messageWait&&pageAt+1<pages.length){pageAt++;renderPage(false);return;}run();}
+ function resetVisual(){E.kv.classList.remove('kv-gl','kv-narr-center','kv-narr-black');E.st.classList.remove('kv-sk');E.fl.style.opacity='0';E.tx.classList.remove('kv-tx-fade','kv-tx-shake');hide('all');curBG='';E.b1.classList.remove('on');E.b2.classList.remove('on');E.dt.classList.remove('on');E.ovl.style.opacity='0';E.cv.style.opacity='0';E.sy.classList.remove('on');E.tl.classList.remove('on');nmOv=null;visual={bg:null,chars:{},date:null,overlay:null,bgm:null,cover:null};}
+ function cancelPlayback(){timers.forEach(window.clearTimeout);timers.clear();sounds.forEach(a=>a.pause());sounds.clear();sbgm(0);typing=false;blocked=false;auto=false;skip=false;pendingRun=false;modalPaused=false;E.ch.classList.remove('on');E.ed.classList.remove('on');q('[data-a=auto]').classList.remove('on');q('[data-a=skip]').classList.remove('on');}
+ function restoreVisual(v){const prior=stat;stat=true;resetVisual();if(v.bg)setBG(v.bg.id,0,false);Object.values(v.chars||{}).forEach(a=>show({...a,enter:'instant'}));if(v.date)ex({cmd:'date',args:v.date});if(v.overlay)ex({cmd:'overlay',args:v.overlay});if(v.cover){E.cv.style.background=v.cover.args.color||'#000';E.cv.style.opacity=v.cover.cmd==='fadeout'?'1':'0';}visual.cover=v.cover;stat=prior;if(v.bgm)pbgm(v.bgm.id,v.bgm.v,v.bgm.lp);}
+ function saveGame(){const info=q('.kv-save-info');if(!messageWait||!message||E.ch.classList.contains('on')||blocked){info.textContent='会話・地の文を表示しているときにセーブできます。';return;}
+  try{localStorage.setItem(saveKey,JSON.stringify({version:1,hash:sigHash,scene:SC[si].id,index:pi,flags,visual,theme:curTh,nmOv,message,pageOffset:pages.slice(0,pageAt).join('').length,logs,at:Date.now()}));info.textContent='この端末に進行をセーブしました。';}catch(e){info.textContent='セーブできませんでした。保存領域をご確認ください。';}}
+ function loadGame(){const info=q('.kv-save-info');try{const z=JSON.parse(localStorage.getItem(saveKey)||'null');if(!z){info.textContent='セーブがありません。';return;}const idx=SC.findIndex(s=>s.id===z.scene);
+  if(z.hash!==sigHash||idx<0){info.textContent='シナリオが変更されているため、このセーブは読み込めません。';return;}
+  cancelPlayback();si=idx;pi=z.index;flags={...z.flags};logs=z.logs||[];restoreVisual(z.visual);setTheme(z.theme);nmOv=z.nmOv;txt(z.message.sp,z.message.t,true,{...z.message.opt,_restoring:true});let n=0;pageAt=0;for(let i=0;i<pages.length;i++){if(n<=(z.pageOffset||0))pageAt=i;n+=pages[i].length;}renderPage(true);E.mn.classList.remove('on');
+ }catch(e){info.textContent='セーブを読み込めませんでした。';}}
+ E.kv.addEventListener('click' ,e=>{if(audioLocked&&bgm){bgm.play().then(()=>{audioLocked=false;bgm.volume=muted?0:.7;}).catch(()=>{});}const b=e.target.closest('button');
   if(b){const a=b.dataset.a;
-   if(a==='auto'){auto=!auto;skip=false;b.classList.toggle('on',auto);q('[data-a=skip]').classList.remove('on');if(auto&&!typing)adv();}
-   else if(a==='skip'){skip=!skip;auto=false;b.classList.toggle('on',skip);q('[data-a=auto]').classList.remove('on');if(skip)adv();}
-   else if(a==='log'){modalPaused=true;E.lgi.innerHTML=logs.map(l=>'<div class="kv-li">'+(l.sp?'<b>'+l.sp.replace(/</g,'&lt;')+'</b>':'')+
+   if(a==='auto'){clearTimeout(at);auto=!auto;skip=false;b.classList.toggle('on',auto);q('[data-a=skip]').classList.remove('on');if(auto&&!typing)adv();}
+   else if(a==='skip'){clearTimeout(at);skip=!skip;auto=false;b.classList.toggle('on',skip);q('[data-a=auto]').classList.remove('on');if(skip)adv();}
+   else if(a==='log'){modalPaused=true;clearTimeout(at);E.lgi.innerHTML=logs.map(l=>'<div class="kv-li">'+(l.sp?'<b>'+l.sp.replace(/</g,'&lt;')+'</b>':'')+
     l.t.replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div>').join('');E.lg.classList.add('on');E.lgi.scrollTop=E.lgi.scrollHeight;}
-   else if(a==='lgx'){E.lg.classList.remove('on');modalPaused=false;if(pendingRun){pendingRun=false;run();}}
+   else if(a==='lgx'){E.lg.classList.remove('on');modalPaused=false;if(pendingRun){pendingRun=false;run();}else if(messageWait&&!typing)done();}
    else if(a==='dcx'){E.dc.classList.remove('on');run();}
-   else if(a==='menu'){modalPaused=true;E.sc.innerHTML='<div class="kv-li"><b>シーンへ移動</b></div>'+SC.map((s,i)=>
-    '<button class="mi" data-go="'+i+'">'+(i+1)+'. '+String(s.title||s.id).replace(/</g,'&lt;')+'</button>').join('');E.mn.classList.add('on');}
-   else if(a==='mnx'){E.mn.classList.remove('on');modalPaused=false;if(pendingRun){pendingRun=false;run();}}
+   else if(a==='save'){saveGame();}
+   else if(a==='load'){loadGame();}
+   else if(a==='menu'){modalPaused=true;clearTimeout(at);E.sc.innerHTML=opts.editor?'<div class="kv-li"><b>シーンへ移動</b></div>'+SC.map((s,i)=>
+    '<button class="mi" data-go="'+i+'">'+(i+1)+'. '+String(s.title||s.id).replace(/</g,'&lt;')+'</button>').join(''):'';q('.kv-save-info').textContent='';E.mn.classList.add('on');}
+   else if(a==='mnx'){E.mn.classList.remove('on');modalPaused=false;if(pendingRun){pendingRun=false;run();}else if(messageWait&&!typing)done();}
    else if(a==='mute'){muted=!muted;if(bgm)bgm.volume=muted?0:.7;}
-   else if(a==='restart'){E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);E.ch.classList.remove('on');E.ed.classList.remove('on');si=0;pi=0;flags={};nmOv=null;curBG='';hide('all');setTheme(S.theme);run();}
-   else if(a==='exit'&&opts.onExit)opts.onExit();
-   if(b.dataset.go!==undefined){E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);E.ch.classList.remove('on');hide('all');goScene(+b.dataset.go,run);}return;}
+   else if(a==='restart'){if(!confirm('最初から再生しますか？保存済みのセーブは残ります。'))return;E.mn.classList.remove('on');cancelPlayback();resetVisual();si=0;pi=0;flags={};logs=[];message=null;setTheme(SC[0].theme||S.theme);run();}
+   else if(a==='exit'){if(opts.onExit)opts.onExit();else{cancelPlayback();resetVisual();si=0;pi=0;flags={};logs=[];message=null;setTheme(SC[0].theme||S.theme);run();}}
+   if(opts.editor&&b.dataset.go!==undefined){cancelPlayback();resetVisual();E.mn.classList.remove('on');modalPaused=false;pendingRun=false;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);E.ch.classList.remove('on');hide('all');goScene(+b.dataset.go,run);}return;}
   if(stat)return;if(e.target.closest('.kv-lg,.kv-mn,.kv-ed,.kv-dc'))return;adv();});
  setTheme(S.theme);
  return {
   getState(){return {scene:SC[si]?.id,index:pi,flags:{...flags}};},
-  start(s,p){si=s||0;pi=p||0;setTheme((SC[si]&&SC[si].theme)||S.theme);run();},
+  start(s,p){si=s||0;pi=p||0;setTheme((SC[si]&&SC[si].theme)||S.theme);if(pi>0){const prior=stat;stat=true;const allowed=['bg','cg','chara','hide','uitheme','horror','name','date','overlay','bgm','bgmstop','flag'];for(let k=0;k<pi;k++){const o=SC[si].ops[k];if(allowed.includes(o.cmd))ex(o);}stat=prior;if(visual.bgm){const a=visual.bgm;pbgm(a.id,a.v,a.lp);}}run();},
   seek(s,i){si=s||0;const sc=SC[si];if(!sc)return;
    Object.keys(CE).forEach(k=>{CE[k].remove();delete CE[k];});
    nmOv=null;curBG='';E.b1.classList.remove('on');E.b2.classList.remove('on');E.ovl.style.opacity='0';
    E.dt.classList.remove('on');E.sy.classList.remove('on');E.nm.classList.remove('on');
    E.kv.classList.remove('kv-narr-center','kv-narr-black');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');E.tx.textContent='';E.cv.style.opacity='0';setTheme(sc.theme||S.theme);
-   for(let k=0;k<=i&&k<sc.ops.length;k++)ex(sc.ops[k]);
+   for(let k=0;k<=i&&k<sc.ops.length;k++){const o=sc.ops[k];if(!['jump','goto','if','end','finish'].includes(o.cmd))ex(o);}
    const op=sc.ops[i];if(op&&op.cmd==='choice'){E.ch.innerHTML='';
     (op.opts||[]).forEach(x=>{const b=document.createElement('button');b.className='kv-cb';
      const sp=document.createElement('span');sp.textContent=x.text;b.appendChild(sp);
      const t=TH[curTh]||{slots:{}};applyWin(b,sp,t.slots.choice,MT,resolve,t.font,FN,{m:'0'});E.ch.appendChild(b);});
-    E.ch.classList.add('on');}else E.ch.classList.remove('on');},
-  destroy(){sounds.forEach(a=>a.pause());sounds.clear();destroyed=true;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);clearTimeout(at);clearTimeout(wt);sbgm(100);root.innerHTML='';}};}
+    E.ch.style.bottom=(Math.max(0,E.kv.getBoundingClientRect().bottom-E.mw.getBoundingClientRect().top)+8)+'px';E.ch.classList.add('on');}else E.ch.classList.remove('on');},
+  destroy(){if(ro)ro.disconnect();sounds.forEach(a=>a.pause());sounds.clear();destroyed=true;timers.forEach(window.clearTimeout);timers.clear();clearTimeout(tm);clearTimeout(at);clearTimeout(wt);sbgm(100);root.innerHTML='';}};}
 (function(){const s=document.createElement('style');s.textContent=PCSS;document.head.appendChild(s);})();
 
 /* ============ preview ============ */
 let PRE=null,preH=38;
 function preview(){const h=$('#prevHost');
- if(!PRE){$('#prev').style.height=preH+'%';PRE=createPlayer(h,runtime(),url,{static:true});}
+ if(!PRE){$('#prev').style.height=preH+'%';PRE=createPlayer(h,runtime(),url,{static:true,editor:true});}
  const ops=curOps().ops;if(!ops.length){return;}
  let i=Math.min(sel,ops.length-1);
  PRE.seek(cs,i);}
@@ -871,17 +945,18 @@ async function editOp(i){
  if(op.cmd==='choice')return editChoice(op,i);
  const d=CMD[op.cmd];
  if(!d)return sheet('この行','<div class="sb">このコマンドは専用エディタがありません。テキストモードで編集してください。</div>');
- const a=Object.assign({},op.args);
+ const a=Object.assign({},op.args);const flagNames=[...new Set(P.scenes.flatMap(sc=>parseScript(sc.script,P.characters).ops.flatMap(o=>o.cmd==='flag'?[o.args.set,o.args.clear]:o.cmd==='if'?[o.args.flag||o.args._]:[])).filter(Boolean))];
  const fld=d.f.map(f=>{
   const v=a[f.k]===undefined?'':a[f.k];
-  if(f.t==='num')return '<label class="f">'+esc(f.l)+'</label><input type="number" step="any" data-k="'+f.k+'" value="'+esc(v)+'">';
+  if(f.t==='num'){const unit=['ms','fade'].includes(f.k)?1000:f.k==='vol'?.01:1;return '<label class="f">'+esc(f.l.replace(/\(ms\)|ミリ秒|ms/g,'（秒）').replace('音量0〜1','音量（%）'))+'</label><input type="number" min="0" step="any" data-factor="'+unit+'" data-k="'+f.k+'" value="'+esc(v===''?'':Number(v)/unit)+'">';}
   if(f.t==='long')return '<label class="f">'+esc(f.l)+'</label><textarea data-k="'+f.k+'" rows="6">'+esc(String(v).replace(/\\n/g,'\n'))+'</textarea>';
+  if(op.cmd==='flag'&&f.k==='val')return '<label class="f">条件の状態</label><select data-k="val">'+[['1','ON（条件を満たす）'],['0','OFF（条件を解除）'],...(!['','1','0'].includes(String(v))?[[String(v),'既存値：'+String(v)]]:[])].map(([k,l])=>'<option value="'+esc(k)+'"'+(String(v||'1')===k?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>';
   if(f.t==='sel')return '<label class="f">'+esc(f.l)+'</label><select data-k="'+f.k+'">'+f.o.map(o=>
    '<option value="'+esc(o[0])+'"'+(String(v)===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select>';
   const lb=f.t==='asset'?'素材を選ぶ':f.t==='chara'?'キャラを選ぶ':f.t==='face'?'表情を選ぶ':f.t==='jump'?'飛び先を選ぶ':f.t==='themeRef'?'テーマを選ぶ':null;
-  return '<label class="f">'+esc(f.l)+'</label><div class="row"><input type="text" data-k="'+f.k+'" value="'+esc(v)+'" style="flex:1">'+
+  return '<label class="f">'+esc(f.l)+'</label><div class="row"><input type="text" '+(['set','clear','flag'].includes(f.k)?'list="knownFlags" ':'')+'data-k="'+f.k+'" value="'+esc(v)+'" style="flex:1">'+
    (lb?'<button class="btn sm" data-pk="'+f.k+'" data-t="'+f.t+'">'+lb+'</button>':'')+'</div>';}).join('');
- sheet(d.l,fld+'<div class="row" style="margin-top:11px"><button class="btn ac" style="flex:1" id="opOK">保存</button>'+
+ sheet(d.l,fld+'<datalist id="knownFlags">'+flagNames.map(f=>'<option value="'+esc(f)+'"></option>').join('')+'</datalist><div class="row" style="margin-top:11px"><button class="btn ac" style="flex:1" id="opOK">保存</button>'+
   '<button class="btn sm" id="opDup">複製</button><button class="btn sm dg" id="opDel">削除</button></div>',()=>{
   $$('#sh [data-pk]').forEach(b=>b.onclick=async()=>{const k=b.dataset.pk,t=b.dataset.t;let v='';
    if(t==='asset'){const f=d.f.find(x=>x.k===k);v=await pickAsset(f.kinds);}
@@ -891,7 +966,7 @@ async function editOp(i){
    else if(t==='themeRef')v=await pickTheme();
    if(v!==null)$('#sh [data-k="'+k+'"]').value=v;});
   $('#opOK').onclick=()=>{const na={...a};d.f.forEach(f=>delete na[f.k]);
-   $$('#sh [data-k]').forEach(el=>{let v=el.value;if(el.tagName==='TEXTAREA')v=v.replace(/\n/g,'\\n');
+   $$('#sh [data-k]').forEach(el=>{let v=el.value;if(el.dataset.factor&&v!=='')v=String(Number((+v*+el.dataset.factor).toFixed(6)));if(el.tagName==='TEXTAREA')v=v.replace(/\n/g,'\\n');
     if(v!=='')na[el.dataset.k]=v;});
    repl(op,[ser(op.cmd,na)]);shClose();rScene();};
   $('#opDup').onclick=()=>{insAt(op.ln1+1,lines().slice(op.ln0,op.ln1+1));shClose();rScene();};
@@ -978,9 +1053,11 @@ function validate(silent){const w=[];errs={};
    const jt=(o.cmd==='jump'||o.cmd==='goto')?(a.target||a._):(o.cmd==='if'?a.jump:null);
    if(jt)ck(jt,labels,bad);
    if(o.cmd==='choice')(o.opts||[]).forEach(x=>{if(!x.text)bad('本文が空の選択肢');
-    if(x.target&&x.target!=='-')ck(x.target,labels,bad);});});});
+    if(!x.target)bad('選択肢の飛び先を選んでください（そのまま進む場合は -）');else if(x.target!=='-')ck(x.target,labels,bad);});});});
  P.scenes.forEach((s,si)=>{const seen=new Set();parseScript(s.script,P.characters).ops.forEach((o,i)=>{if(o.cmd==='label'){const id=o.args._||o.args.name;if(!id||seen.has(id))w.push({m:s.title+'：空または重複ラベル '+id,s:si,i});seen.add(id);}});});P.characters.forEach(c=>Object.values(c.faces||{}).forEach(id=>{if(id&&!A(id))w.push({m:c.name+'：表情素材なし '+id,s:-1});}));P.themes.forEach(t=>Object.values(t.slots||{}).forEach(id=>{if(id&&!A(id))w.push({m:t.name+'：UI素材なし '+id,s:-1});}));const th0=theme(P.settings.theme);
  if(!th0.slots.msg)w.push({m:'UIテーマ「'+th0.name+'」に会話ウィンドウ画像が未設定',s:-1});
+ P.scenes.forEach((sc,si)=>{const ops=parseScript(sc.script,P.characters).ops.filter(o=>!['note','blank'].includes(o.cmd));const last=ops[ops.length-1];if(si<P.scenes.length-1&&(!last||last.cmd==='end'))w.push({m:sc.title+'：終了後は並び順で次のシーンへ進みます。分岐ENDには「作品を終了」を使ってください。',s:si,i:Math.max(0,ops.length-1)});});
+ P.themes.forEach(t=>{const a=A(t.slots.msg);if(a&&(!a.meta?.nameMode||a.meta.nameMode==='auto'))w.push({m:t.name+'：名前位置は仮設定です。「UI → 位置」でPNGの名前欄に合わせて保存してください。',s:-1});});
  if(silent===true)return w;
  sheet('検証結果',w.length?'<div class="lst2">'+w.map((x,k)=>'<div class="it" data-j="'+k+'"><div class="g"><b class="wn">'+
   esc(x.m)+'</b></div>'+(x.s>=0?'<span class="sb">▶</span>':'')+'</div>').join('')+'</div>'
@@ -1036,40 +1113,44 @@ async function permanentDeleteAsset(id){const a=AX(id);if(!a||!a.deleted)return;
 function trashSheet(){const ls=AS.filter(a=>a.deleted);sheet('素材ゴミ箱',ls.length?'<div class="lst2">'+ls.map(a=>'<div class="it" data-trash="'+esc(a.id)+'">'+(a.kind==='bgm'||a.kind==='se'?'<div style="width:36px;text-align:center">♪</div>':'<img src="'+thAny(a.id)+'">')+'<div class="g"><b>'+esc(a.id)+'</b><div class="s">'+esc(a.name)+' / '+KIND[a.kind]+'</div></div><button class="btn sm" data-restore="'+esc(a.id)+'">復元</button><button class="btn sm dg" data-purge="'+esc(a.id)+'">完全削除</button></div>').join('')+'</div>':'<p class="sb">ゴミ箱は空です。</p>',()=>{$$('#sh [data-restore]').forEach(b=>b.onclick=()=>restoreAsset(b.dataset.restore));$$('#sh [data-purge]').forEach(b=>b.onclick=()=>permanentDeleteAsset(b.dataset.purge));});}
 
 /* ---- safe area calibrate ---- */
-function calib(id){const a=A(id);const s=Object.assign({t:12,r:7,b:14,l:7},a.meta.safe||{});
- const fit=a.meta.fit||'aspect',sl=a.meta.slice||{t:18,r:14,b:18,l:14};
- sheet('文字位置の調整：'+a.id,
- '<div class="sb">枠に対して本文を収める余白を決めます。ここで保存した値が、この枠を使う全セリフに適用されます。</div>'+
- '<div id="cal" style="margin-top:8px"><img src="'+url(id)+'"><div id="calR"><div class="tx">あいうえお<br>テキスト表示域</div>'+
- '<div class="hd t" data-h="t"></div><div class="hd r" data-h="r"></div><div class="hd b" data-h="b"></div><div class="hd l" data-h="l"></div></div></div>'+
- '<div class="sb" id="calV" style="padding-top:5px"></div>'+
- '<label class="f">拡縮方法</label><select id="calF">'+
-  [['aspect','比率を保って幅に合わせる'],['stretch','領域に合わせて伸縮'],['slice9','9スライス（角を保って伸縮）']].map(o=>
-  '<option value="'+o[0]+'"'+(fit===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>'+
- '<div id="calS" style="display:'+(fit==='slice9'?'block':'none')+'">'+
-  ['t','r','b','l'].map(k=>'<label class="f">9スライス '+k+'（%）</label><input type="number" data-sl="'+k+'" value="'+sl[k]+'">').join('')+'</div>'+
- '<div class="row" style="margin-top:11px"><button class="btn ac" style="flex:1" id="calOK">この素材に保存</button>'+
- '<button class="btn sm" id="calAll">同種のUI素材へ一括適用</button></div>',()=>{
-  const box=$('#cal'),R=$('#calR');
-  const draw=()=>{R.style.top=s.t+'%';R.style.right=s.r+'%';R.style.bottom=s.b+'%';R.style.left=s.l+'%';
-   $('#calV').textContent='上'+s.t.toFixed(1)+'% 右'+s.r.toFixed(1)+'% 下'+s.b.toFixed(1)+'% 左'+s.l.toFixed(1)+'%';};
-  draw();
-  $$('#cal .hd').forEach(h=>{h.addEventListener('pointerdown',e=>{e.preventDefault();h.setPointerCapture(e.pointerId);
-   const k=h.dataset.h,r=box.getBoundingClientRect();
-   const mv=ev=>{const x=(ev.clientX-r.left)/r.width*100,y=(ev.clientY-r.top)/r.height*100;
-    if(k==='t')s.t=Math.max(0,Math.min(95-s.b,y));if(k==='b')s.b=Math.max(0,Math.min(95-s.t,100-y));
-    if(k==='l')s.l=Math.max(0,Math.min(95-s.r,x));if(k==='r')s.r=Math.max(0,Math.min(95-s.l,100-x));draw();};
-   const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);};
-   h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up,{once:true});h.addEventListener('lostpointercapture',up,{once:true});});});
-  $('#calF').onchange=()=>{$('#calS').style.display=$('#calF').value==='slice9'?'block':'none';};
-  const save=async(t)=>{t.meta=t.meta||{};t.meta.safe={t:+s.t.toFixed(2),r:+s.r.toFixed(2),b:+s.b.toFixed(2),l:+s.l.toFixed(2)};
-   t.meta.fit=$('#calF').value;
-   if(t.meta.fit==='slice9'){const o={};$$('#calS [data-sl]').forEach(i=>o[i.dataset.sl]=+i.value||0);t.meta.slice=o;}
-   await aPut(t);};
-  $('#calOK').onclick=async()=>{await save(a);shClose();rebuildPreview();rAssets();toast('保存しました');};
-  $('#calAll').onclick=async()=>{const tg=AS.filter(x=>x.kind==='ui'&&x.meta&&x.meta.w&&Math.abs((x.meta.w/x.meta.h)-(a.meta.w/a.meta.h))<0.08);
-   if(!confirm('縦横比が近いUI素材 '+tg.length+'件に同じ余白を適用します。'))return;
-   for(const t of tg)await save(t);shClose();rebuildPreview();toast(tg.length+'件へ適用');};});}
+function calib(id){
+ const a=A(id);if(!a)return;const m=a.meta||{},safe=m.safe||{t:26,r:9,b:14,l:9};
+ const rects={body:{x:safe.l,y:safe.t,w:100-safe.l-safe.r,h:100-safe.t-safe.b},name:{...(m.nameArea||{x:3,y:0,w:29,h:22})}};
+ const usedAsMessage=P.themes.some(t=>t.slots.msg===id);let active=usedAsMessage?'name':'body';const initialMode=m.nameMode==='auto'||!m.nameMode?(usedAsMessage?'embedded':'separate'):m.nameMode;
+ const options=(xs,v)=>xs.map(([k,l])=>'<option value="'+k+'"'+(k===v?' selected':'')+'>'+l+'</option>').join('');
+ sheet('名前・本文の位置：'+a.id,
+  '<p class="sb">黄色＝名前、青＝本文。枠の内側をドラッグして移動、右下の丸で拡縮できます。PNGごとに一度設定すれば全セリフへ反映されます。下の数値でも微調整できます。</p>'+
+  '<label class="f">名前の表示方法（会話ウィンドウ用）</label><select id="calMode">'+options([['embedded','PNG内に文字だけ重ねる'],['separate','会話窓の上に別枠を表示'],['hidden','名前を表示しない']],initialMode)+'</select>'+
+  '<div class="row" style="margin:8px 0"><button class="btn" id="calName">黄色：名前を調整</button><button class="btn" id="calBody">青色：本文を調整</button></div>'+
+  '<div id="cal" style="margin:16px 0"><img alt="配置するUI素材" src="'+url(id)+'">'+
+  '<div class="region name" data-region="name"><span>雨宮 彩音</span><div class="sizeHandle" aria-label="名前の大きさ"></div></div>'+
+  '<div class="region" data-region="body"><span>「ねえ、行こ？ あの沢、まだ誰も来てないよ！」</span><div class="sizeHandle" aria-label="本文の大きさ"></div></div></div>'+
+  '<div class="calnums">'+[['x','左'],['y','上'],['w','幅'],['h','高さ']].map(([k,l])=>'<label class="f">'+l+'（%）<input type="number" min="0" max="100" step="0.5" data-rect="'+k+'"></label>').join('')+'</div>'+
+  '<label class="f">名前の揃え方</label><select id="calAlign">'+options([['left','左揃え'],['center','中央揃え'],['right','右揃え']],m.nameAlign||'center')+'</select>'+
+  '<label class="f">画像の拡縮</label><select id="calF">'+options([['aspect','画像の比率を保つ'],['stretch','会話窓の大きさに合わせる'],['slice9','9スライス（角を保つ）']],m.fit||'aspect')+'</select>'+
+  '<div class="calnums" id="calSlices">'+[['t','上'],['r','右'],['b','下'],['l','左']].map(([k,l])=>'<label class="f">角 '+l+'（%）<input type="number" min="0" max="45" step="1" data-sl="'+k+'" value="'+Number((m.slice||{t:18,r:14,b:18,l:14})[k])+'"></label>').join('')+'</div>'+
+  '<p class="wn" id="calWarning"></p><p class="sb">名前のフォント・サイズは「UI → フォント設定」で変更できます。地の文で名前の装飾も消す場合は、テーマに「地の文用ウィンドウ」を割り当ててください。</p>'+
+  '<button class="btn ac" id="calOK" style="width:100%">この素材に保存</button>',()=>{
+   const box=$('#cal');const clamp=r=>{r.x=Math.max(0,Math.min(98,Number(r.x)||0));r.y=Math.max(0,Math.min(98,Number(r.y)||0));r.w=Math.max(2,Math.min(100-r.x,Number(r.w)||2));r.h=Math.max(2,Math.min(100-r.y,Number(r.h)||2));};
+   const draw=()=>{Object.entries(rects).forEach(([key,r])=>{clamp(r);const el=$('[data-region="'+key+'"]',box);Object.assign(el.style,{left:r.x+'%',top:r.y+'%',width:r.w+'%',height:r.h+'%',display:key==='name'&&$('#calMode').value!=='embedded'?'none':'block'});el.classList.toggle('active',active===key);$('.sizeHandle',el).style.display=active===key?'block':'none';});
+    $$('#sh [data-rect]').forEach(el=>el.value=+rects[active][el.dataset.rect].toFixed(1));$('#calName').classList.toggle('ac',active==='name');$('#calBody').classList.toggle('ac',active==='body');
+    const n=rects.name,b=rects.body,overlap=n.x<b.x+b.w&&n.x+n.w>b.x&&n.y<b.y+b.h&&n.y+n.h>b.y;
+    $('#calWarning').textContent=$('#calMode').value==='embedded'&&overlap?'名前と本文の範囲が重なっています。枠を離してください。':'';
+    $('#calSlices').style.display=$('#calF').value==='slice9'?'grid':'none';};
+   $('#calName').onclick=()=>{active='name';draw();};$('#calBody').onclick=()=>{active='body';draw();};$('#calMode').onchange=draw;$('#calF').onchange=draw;
+   $$('#sh [data-rect]').forEach(el=>el.onchange=()=>{rects[active][el.dataset.rect]=+el.value;draw();});
+   $$('#cal .region').forEach(el=>el.onpointerdown=e=>{e.preventDefault();e.stopPropagation();active=el.dataset.region;const resize=!!e.target.closest('.sizeHandle'),start={...rects[active]},x=e.clientX,y=e.clientY,br=box.getBoundingClientRect();el.setPointerCapture(e.pointerId);draw();
+    const move=ev=>{const dx=(ev.clientX-x)/br.width*100,dy=(ev.clientY-y)/br.height*100;const r=rects[active];if(resize){r.w=start.w+dx;r.h=start.h+dy;}else{r.x=Math.max(0,Math.min(100-start.w,start.x+dx));r.y=Math.max(0,Math.min(100-start.h,start.y+dy));}draw();};
+    const end=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',end);el.removeEventListener('pointercancel',end);el.removeEventListener('lostpointercapture',end);};
+    el.addEventListener('pointermove',move);el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);
+   });
+   $('#calOK').onclick=async()=>{if($('#calWarning').textContent)return toast('名前と本文の範囲が重ならないように調整してください。');const b=rects.body,old=JSON.parse(JSON.stringify(a.meta||{}));ensureHistoryBase();
+    a.meta={...m,safe:{t:b.y,r:100-b.x-b.w,b:100-b.y-b.h,l:b.x},nameArea:{...rects.name},nameMode:$('#calMode').value,nameAlign:$('#calAlign').value,fit:$('#calF').value};
+    if(a.meta.fit==='slice9'){a.meta.slice={};$$('#calSlices [data-sl]').forEach(el=>a.meta.slice[el.dataset.sl]=Math.max(0,Math.min(45,+el.value||0)));}
+    try{await aPut(a);push();shClose();rebuildPreview();rUI();toast('名前と本文の位置を保存しました');}catch(e){a.meta=old;toast('保存できませんでした：'+e.message);}
+   };draw();
+  });
+}
 
 /* ---- crop from sheet ---- */
 function crop(id){const a=A(id);let r={x:5,y:5,w:40,h:40};
@@ -1124,18 +1205,19 @@ function rChara(){
    return '<div class="fb'+(a?'':' e')+'" data-c="'+i+'" data-k="'+k+'"><img src="'+(a?th(a):'')+'"><span>'+l+'</span></div>';}).join('')+'</div>'+
   '<div class="row"><button class="btn sm" data-au="'+i+'">表情を自動割当</button><button class="btn sm" data-ed="'+i+'">名前・色</button>'+
   '<button class="btn sm dg" data-dl="'+i+'">削除</button></div></div>').join('');
- $('#cAdd').onclick=()=>sheet('キャラを追加','<label class="f">ID（半角英数）</label><input type="text" id="nId" placeholder="ayane">'+
+ $('#cAdd').onclick=()=>sheet('キャラを追加','<label class="f">ID（空欄で自動生成）</label><input type="text" id="nId" placeholder="ayane">'+
   '<label class="f">表示名</label><input type="text" id="nNm" placeholder="雨宮 彩音">'+
   '<label class="f">名前欄の色</label><input type="text" id="nCl" value="#ffffff">'+
   '<div class="row" style="margin-top:10px"><button class="btn ac" id="nOK">追加</button></div>',()=>{
-   $('#nOK').onclick=()=>{const id=$('#nId').value.trim(),nm=$('#nNm').value.trim();
+   $('#nOK').onclick=()=>{const id=$('#nId').value.trim()||('ch_'+Date.now().toString(36)),nm=$('#nNm').value.trim();
     if(!/^[\w-]+$/.test(id)||['__proto__','constructor','prototype'].includes(id)||!nm)return toast('IDは半角英数字・_・-で入力');if(chara(id))return toast('同じIDがあります');
     P.characters.push({id,name:nm,color:$('#nCl').value.trim()||'#fff',faces:{}});push();shClose();rChara();};});
  $$('#t-ch .fb').forEach(b=>b.onclick=async()=>{const id=await pickAsset(['chara','bg','ui']);if(id===null)return;
   const c=P.characters[+b.dataset.c];if(id)c.faces[b.dataset.k]=id;else delete c.faces[b.dataset.k];push();rChara();});
- $$('#t-ch [data-au]').forEach(b=>b.onclick=()=>{const c=P.characters[+b.dataset.au];let n=0;
-  AS.filter(a=>a.kind==='chara').forEach(a=>FACES.forEach(([k])=>{if(FHINT[k]&&FHINT[k].test(a.name)&&!c.faces[k]){c.faces[k]=a.id;n++;}}));
-  push();rChara();toast(n?n+'件を自動割当':'ファイル名から判定できませんでした');});
+ $$('#t-ch [data-au]').forEach(b=>b.onclick=()=>{const c=P.characters[+b.dataset.au];const keys=[c.id,c.name,nkey(c.name)].filter(Boolean);const candidates=AS.filter(a=>!a.deleted&&a.kind==='chara'&&keys.some(k=>nkey(a.name).toLowerCase().includes(nkey(k).toLowerCase())));let count=0,ambiguous=0;
+ const assign=[];FACES.forEach(([k])=>{if(c.faces[k])return;const hits=candidates.filter(a=>FHINT[k]?.test(a.name));if(hits.length===1)assign.push([k,hits[0]]);else if(hits.length>1)ambiguous++;});
+ if(!assign.length)return toast('人物名と表情が一意に判別できません。各表情をタップして素材を選んでください。');
+ sheet('表情の自動割当を確認','<p>'+esc(c.name)+' に次の素材を割り当てます。</p>'+assign.map(([k,a])=>'<p>'+esc(FACES.find(f=>f[0]===k)[1])+'：'+esc(a.name)+'</p>').join('')+'<p class="sb">候補が複数ある表情は自動変更しません。</p><button class="btn ac" id="faceApply">適用</button>',()=>{$('#faceApply').onclick=()=>{assign.forEach(([k,a])=>c.faces[k]=a.id);push();shClose();rChara();toast(assign.length+'件を割当しました');};});});
  $$('#t-ch [data-ed]').forEach(b=>b.onclick=()=>{const c=P.characters[+b.dataset.ed];
   sheet('キャラ設定','<label class="f">表示名</label><input type="text" id="eN" value="'+esc(c.name)+'">'+
   '<label class="f">名前欄の色</label><input type="text" id="eC" value="'+esc(c.color||'#fff')+'">'+
@@ -1159,10 +1241,10 @@ function rUI(){
   '<button class="btn sm" data-df="'+i+'">既定テーマにする</button>'+
   '<button class="btn sm" data-rn="'+i+'">名称</button>'+
   '<button class="btn sm dg" data-tx="'+i+'">削除</button></div></div>').join('');
- $('#uAdd').onclick=()=>sheet('テーマを追加','<label class="f">ID</label><input type="text" id="tId" placeholder="recall">'+
+ $('#uAdd').onclick=()=>sheet('テーマを追加','<label class="f">ID（空欄で自動生成）</label><input type="text" id="tId" placeholder="recall">'+
   '<label class="f">名称</label><input type="text" id="tNm" placeholder="回想">'+
   '<div class="row" style="margin-top:10px"><button class="btn ac" id="tOK">追加</button></div>',()=>{
-   $('#tOK').onclick=()=>{const id=$('#tId').value.trim(),nm=$('#tNm').value.trim()||id;
+   $('#tOK').onclick=()=>{const id=$('#tId').value.trim()||('theme_'+Date.now().toString(36)),nm=$('#tNm').value.trim()||id;
     if(!/^[\w-]+$/.test(id)||['__proto__','constructor','prototype'].includes(id))return toast('IDは半角英数字・_・-で入力');if(P.themes.some(t=>t.id===id))return toast('同じIDがあります');
     P.themes.push({id,name:nm,slots:{},font:DFONT(),nameFont:{f:'mincho',size:14,color:'#fff'}});push();shClose();rUI();};});
  $('#uAuto').onclick=()=>{let n=0;
@@ -1189,7 +1271,7 @@ function fontSheet(i){const t=P.themes[i],f=t.font,nf=t.nameFont;
  const fo=v=>Object.keys(FONTS).map(k=>'<option value="'+k+'"'+(v===k?' selected':'')+'>'+FONTS[k][0]+'</option>').join('');
  sheet('フォント：'+t.name,
  '<label class="f">本文フォント</label><select id="fF">'+fo(f.f)+'</select>'+
- '<label class="f">本文サイズ <b id="fSv">'+f.size+'</b>px</label><input type="range" id="fS" min="11" max="26" step="1" value="'+f.size+'">'+
+ '<label class="f">本文サイズ <b id="fSv">'+f.size+'</b>px</label><input type="range" id="fS" min="14" max="26" step="1" value="'+f.size+'">'+
  '<label class="f">行間 <b id="fLv">'+f.lh+'</b></label><input type="range" id="fL" min="1.3" max="2.4" step="0.05" value="'+f.lh+'">'+
  '<label class="f">本文色</label><input type="text" id="fC" value="'+esc(f.color)+'">'+
  '<label class="f">文字影</label><select id="fD"><option value="1"'+(f.shadow?' selected':'')+'>あり</option><option value=""'+(f.shadow?'':' selected')+'>なし</option></select>'+
@@ -1206,12 +1288,12 @@ function fontSheet(i){const t=P.themes[i],f=t.font,nf=t.nameFont;
 
 /* ============ config tab ============ */
 function rConf(){
- $('#t-cf').innerHTML='<div class="card"><h3>自己診断</h3><p class="sb">保存・文章の解析・画面の重なり・データの整合性・書き出しを自動で点検します。プロジェクトの内容は変更されません。</p><button class="btn ac" id="bSelfCheck" style="width:100%;min-height:48px">▶ 自己診断を実行</button></div>'+
+ $('#t-cf').innerHTML='<div class="card"><h3>2.4.0：2Dノベル制作</h3><p class="sb">名前位置：UI → 位置でPNG内の名前欄を指定。長文：文字を縮小せず自動ページ分割。分岐END：＋追加 → 進行 → 作品を終了。従来のシーン終了は次のシーンへ進みます。公開ゲーム：メニューから会話位置を1件セーブできます（この端末内）。素材はこのHTMLには含まれません。</p><p class="sb">既存作品は同じURLで引き継ぐか、フルバックアップZIPを復元してください。途中再生では選んだシーン内の直前までの表示命令を復元します。条件分岐の通し確認はシーン先頭から再生してください。</p></div><div class="card"><h3>自己診断</h3><p class="sb">保存・文章の解析・画面の重なり・データの整合性・書き出しを自動で点検します。プロジェクトの内容は変更されません。</p><button class="btn ac" id="bSelfCheck" style="width:100%;min-height:48px">▶ 自己診断を実行</button></div>'+
  '<div class="card"><h3>基本設定</h3>'+
  '<label class="f">作品タイトル</label><input type="text" id="gT" value="'+esc(P.title||'')+'">'+
  '<label class="f">文字表示速度（文字/秒）</label><input type="number" id="gS" value="'+(P.settings.textSpeed||35)+'">'+
  '<label class="f">句読点で自然な間を入れる</label><select id="gP"><option value="1"'+(P.settings.punctWait===false?'':' selected')+'>入れる</option><option value=""'+(P.settings.punctWait===false?' selected':'')+'>入れない</option></select>'+
- '<label class="f">AUTO待ち（ms）</label><input type="number" id="gA" value="'+(P.settings.autoWait||1400)+'">'+
+ '<label class="f">AUTO待ち（秒）</label><input type="number" id="gA" min="0.1" step="0.1" value="'+((P.settings.autoWait||1400)/1000)+'">'+
  '<label class="f">会話UIの高さ（画面%）</label><input type="number" id="gH" value="'+(P.settings.msgH||30)+'">'+
  '<label class="f">既定UIテーマ</label><select id="gTh">'+P.themes.map(t=>'<option value="'+esc(t.id)+'"'+(P.settings.theme===t.id?' selected':'')+'>'+esc(t.name)+'</option>').join('')+'</select>'+
  '<label class="f">取り込み時に画像を長辺1280pxへ圧縮（UI素材は除外）</label><select id="gSh"><option value=""'+(P.settings.autoShrink?'':' selected')+'>しない</option><option value="1"'+(P.settings.autoShrink?' selected':'')+'>する</option></select>'+
@@ -1225,14 +1307,14 @@ function rConf(){
  '<div class="row" style="margin-top:8px"><button class="btn" id="bkUp">フルバックアップZIP</button></div></div>'+
  '<div class="card"><h3>初期化</h3><div class="row"><button class="btn dg" id="rst">シナリオを初期サンプルへ戻す</button></div></div>';
  $('#gOK').onclick=()=>{P.title=$('#gT').value.trim()||P.title;P.settings.textSpeed=+$('#gS').value||35;P.settings.punctWait=!!$('#gP').value;
-  P.settings.autoWait=+$('#gA').value||1400;P.settings.msgH=Math.min(60,Math.max(18,+$('#gH').value||30));
+  P.settings.autoWait=Math.max(100,+$('#gA').value*1000||1400);P.settings.msgH=Math.min(60,Math.max(18,+$('#gH').value||30));
   P.settings.theme=$('#gTh').value;P.settings.autoShrink=!!$('#gSh').value;push();rebuildPreview();toast('保存しました');};
  $('#eZip').onclick=expZip;$('#eHtml').onclick=expHtml;
  $('#eJson').onclick=()=>dl(new Blob([JSON.stringify(P,null,2)],{type:'application/json'}),(P.title||'project')+'_scenario.json');
  $('#iJson').onclick=()=>$('#fJson').click();
  $('#bkUp').onclick=backup;const rb=document.createElement('button');rb.className='btn';rb.textContent='バックアップZIPを復元';rb.onclick=()=>$('#fRestore').click();$('#bkUp').parentNode.appendChild(rb);
  $('#rst').onclick=()=>{if(!confirm('シナリオ・テーマを初期状態に戻します（素材は残ります）'))return;
-  P=JSON.parse(JSON.stringify(DEF));cs=0;sel=0;push();rScene();rConf();};}
+  P=normalizeProject(DEF);cs=0;sel=0;push();rScene();rConf();};}
 
 /* ---- export ---- */
 function used(){const s=new Set();
@@ -1250,7 +1332,7 @@ function htmlShell(pj,map){
  '#s{position:fixed;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-family:serif;letter-spacing:.3em;font-size:16px}'+
  PCSS+'</style></head><body><div id="g"></div><div id="s">▶ TAP TO START</div><script>\n'+
  'var PJ='+JSON.stringify(pj).replace(/<\//g,'<\\/')+';\nvar MP='+JSON.stringify(map).replace(/<\//g,'<\\/')+';\n'+
- parseArgs.toString()+'\n'+parseScript.toString()+'\n'+applyWin.toString()+'\n'+fitText.toString()+'\n'+createPlayer.toString()+'\n'+
+ parseArgs.toString()+'\n'+parseScript.toString()+'\n'+applyWin.toString()+'\n'+fitText.toString()+'\n'+splitNovelText.toString()+'\n'+createPlayer.toString()+'\n'+
  'document.getElementById("s").addEventListener("click",function(){this.remove();'+
  'createPlayer(document.getElementById("g"),PJ,function(i){return MP[i]||"";},{}).start(0,0);});\n'+
  '<\/script></body></html>';}
@@ -1279,7 +1361,7 @@ async function backup(){try{if(AS.reduce((n,a)=>n+a.size,0)>150*1048576&&!confir
 /* ============ play / tabs / boot ============ */
 let PL=null;
 function play(s,i){$('#ov').classList.add('on');if(PL)PL.destroy();
- PL=createPlayer($('#pv'),runtime(),url,{onExit:stop});
+ PL=createPlayer($('#pv'),runtime(),url,{onExit:stop,editor:true});
  const ops=curOps().ops;let st=i||0;
  while(st>0&&ops[st]&&ops[st].cmd==='blank')st--;
  PL.start(s||0,st);}
@@ -1296,7 +1378,7 @@ $('#fJson').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new File
  r.onload=()=>{try{const p=normalizeProject(JSON.parse(r.result));if(!confirm('現在のシナリオを置き換えます。続けますか？'))return;P=p;cs=0;sel=0;resetHistory();tab('sc');toast('読み込みました');}catch(x){toast('読み込み失敗: '+x.message);}};
  r.readAsText(f);e.target.value='';};
 window.addEventListener('beforeunload',e=>{void flushSave(true);if(saveFailed||savePending){e.preventDefault();e.returnValue='';}});window.addEventListener('unhandledrejection',e=>toast('操作に失敗しました: '+(e.reason?.message||e.reason)));
-/* Studio 2.3.0: data safety, self-check and guided editing */
+/* Studio 2.4.0: data safety, self-check and guided editing */
 function assetFields(op){const a=op.args||{},keys=[];if(['bg','cg','bgm','se'].includes(op.cmd))keys.push(a.id?'id':'_');if(['chara','overlay','doc'].includes(op.cmd))keys.push(a.asset?'asset':op.cmd==='overlay'?'_':'asset');if(op.cmd==='blink'&&!chara(a.to))keys.push('to');return keys;}
 function assetUsage(id){const refs=[];P.scenes.forEach((sc,si)=>parseScript(sc.script,P.characters).ops.forEach(o=>{if(assetFields(o).some(k=>o.args?.[k]===id)){const nm=(CMD[o.cmd]&&CMD[o.cmd].l)||o.cmd;refs.push({type:'scene',scene:si,line:o.ln0+1,cmd:o.cmd,label:'シーン「'+sc.title+'」 / '+(o.ln0+1)+'行 / '+nm+' (@'+o.cmd+')'});}}));P.characters.forEach(c=>Object.entries(c.faces||{}).forEach(([k,v])=>{if(v===id)refs.push({type:'character',label:'キャラ「'+c.name+'」 / 表情 '+k});}));P.themes.forEach(t=>Object.entries(t.slots||{}).forEach(([k,v])=>{if(v===id)refs.push({type:'theme',label:'UIテーマ「'+t.name+'」 / '+k});}));return refs;}
 function assetRefs(id){return assetUsage(id).map(x=>x.label);}
@@ -1305,8 +1387,8 @@ async function renameAsset(a,id,kind){if(!/^[\w-]+$/.test(id)||['__proto__','con
 function renameCharacter(c,newName){if(P.characters.some(x=>x!==c&&nkey(x.name)===nkey(newName)))throw Error('同じ表示名のキャラがいます');P.scenes.forEach(s=>{const L=s.script.split(/\r?\n/);parseScript(s.script,P.characters).ops.forEach(o=>{if(o.cmd==='msg'&&o.sid===c.id){if(o.args&&o.args.type==='say'){o.args.sid=c.id;delete o.args.speaker;L[o.ln0]=ser('msg',o.args);}else L[o.ln0]=newName+'：'+o.text;}});s.script=L.join('\n');});c.name=newName;}
 function cardActions(ops){const el=$('#cardActions');el.innerHTML=[['add','＋追加'],['edit','編集'],['copy','複製'],['del','削除'],['up','↑'],['down','↓'],['find','検索'],['help','使い方']].map(([id,label])=>'<button class="btn sm" data-act="'+id+'">'+label+'</button>').join('');el.onclick=e=>{const a=e.target.dataset.act,o=ops[sel];if(a==='help')return helpStudio();if(a==='find')return findScript();if(a==='add')return palette(o?o.ln1+1:0);if(!o)return;if(a==='edit')return editOp(sel);if(a==='copy'){insAt(o.ln1+1,lines().slice(o.ln0,o.ln1+1));selectByLine(o.ln1+1);}if(a==='del'){if(!confirm('このカードを削除しますか？（元に戻せます）'))return;delOp(o);}if(a==='up'||a==='down')moveOp(ops,sel,a==='up'?-1:1);rScene();};}
 function findScript(){sheet('シナリオ内検索','<input id="findQ" type="text" placeholder="セリフ・人物名・素材ID"><div id="findResults"></div>',()=>{$('#findQ').oninput=()=>{const q=$('#findQ').value.trim();const found=[];if(q)P.scenes.forEach((s,si)=>parseScript(s.script,P.characters).ops.forEach((o,oi)=>{const line=s.script.split(/\r?\n/).slice(o.ln0,o.ln1+1).join(' ');if(line.toLowerCase().includes(q.toLowerCase()))found.push({si,oi,label:s.title+' / '+(o.ln0+1)+'行 '+line});}));$('#findResults').innerHTML=found.slice(0,100).map((x,i)=>'<button class="btn" style="display:block;margin:6px 0;text-align:left" data-hit="'+i+'">'+esc(x.label)+'</button>').join('')||'<p>一致する行はありません</p>';$$('[data-hit]').forEach(b=>b.onclick=()=>{const x=found[+b.dataset.hit];cs=x.si;sel=x.oi;shClose();tab('sc');});};});}
-function helpStudio(){sheet('制作の手順','<ol><li>最初に「設定 → バックアップZIPを復元」で同梱の starter_backup.zip を読み込みます。</li><li>「シナリオ」でカードを選び「編集」。文章は普通に入力し、背景・表情・演出は一覧から選びます。</li><li>「＋追加 → 進行」で選択肢、ラベル、ジャンプ、フラグを配置できます。</li><li>人物資料シートは「素材 → 切り出し」で個別化し「キャラ」で8表情に割り当てます。</li><li>「UI」で枠を選び、素材の「文字位置を調整」で余白を設定します。</li><li>▶で再生。「検証」で不足を確認し、設定から公開ZIPを書き出します。</li><li>制作後は必ずフルバックアップZIPを保存。別端末でも復元できます。</li></ol><p>シナリオJSONには画像・音声は含まれません。添付資料由来の文章は仮稿です。3Dゲーム本体はこのファイルには含まれません。</p>');}
-async function preflight(){await flushSave(true);const warnings=validate(true),ids=used(),total=ids.reduce((n,id)=>n+A(id).size,0);return new Promise(resolve=>{sheet('書き出し前の確認','<p>使用素材 '+ids.length+'件 / '+fsz(total)+'<br>未使用素材 '+(AS.length-ids.length)+'件<br>単体HTML素材部分の概算 '+fsz(total*4/3)+'<br>'+esc(saveState)+'</p>'+ (warnings.length?'<p class="wn">要確認 '+warnings.length+'件</p><ul>'+warnings.map(w=>'<li>'+esc(w.m)+'</li>').join('')+'</ul>':'<p>検証で問題は見つかりませんでした。</p>')+'<button class="btn ac" id="pfOK">'+(warnings.length?'確認して書き出す':'書き出す')+'</button>',()=>{shClose.cb=resolve;$('#pfOK').onclick=()=>{shClose.cb=null;shClose();resolve(true);};});});}
+function helpStudio(){sheet('制作の手順','<ol><li>既存作品は「設定 → バックアップZIPを復元」で読み込みます。新規作品は「素材」で画像・音声を追加します。</li><li>「シナリオ」でカードを選び「編集」。文章は普通に入力し、背景・表情・演出は一覧から選びます。</li><li>「＋追加 → 進行」で選択肢、ラベル、ジャンプ、フラグを配置できます。</li><li>人物資料シートは「素材 → 切り出し」で個別化し「キャラ」で8表情に割り当てます。</li><li>「UI → 位置」で名前欄と本文の範囲を設定します。黄色が名前、青色が本文です。PNGに名前枠がある場合は「PNG内」を選びます。</li><li>▶で再生。長文は自動でページ分割されます。「進行 → 作品を終了」でENDを指定します。公開版のメニューにはシーン一覧は出ません。</li><li>制作後は必ずフルバックアップZIPを保存。別端末でも復元できます。</li></ol><p>シナリオJSONには画像・音声は含まれません。添付資料由来の文章は仮稿です。3Dゲーム本体はこのファイルには含まれません。</p>');}
+async function preflight(){if(!await flushSave(true))return false;const warnings=validate(true),ids=used(),total=ids.reduce((n,id)=>n+A(id).size,0);return new Promise(resolve=>{sheet('書き出し前の確認','<p>使用素材 '+ids.length+'件 / '+fsz(total)+'<br>未使用素材 '+(AS.length-ids.length)+'件<br>単体HTML素材部分の概算 '+fsz(total*4/3)+'<br>'+esc(saveState)+'</p>'+ (warnings.length?'<p class="wn">要確認 '+warnings.length+'件</p><ul>'+warnings.map(w=>'<li>'+esc(w.m)+'</li>').join('')+'</ul>':'<p>検証で問題は見つかりませんでした。</p>')+'<button class="btn ac" id="pfOK">'+(warnings.length?'確認して書き出す':'書き出す')+'</button>',()=>{shClose.cb=resolve;$('#pfOK').onclick=()=>{shClose.cb=null;shClose();resolve(true);};});});}
 async function writeAssetSet(records){await tx('readwrite',s=>{s.clear();records.forEach(a=>s.put(a));});}
 async function restoreBackup(file,ask=true){const en=await unzip(file),get=n=>en.find(e=>e.name===n||e.name.endsWith('/'+n));const dec=e=>JSON.parse(new TextDecoder().decode(e.data));if(!get('project.json')||!get('assets.json'))throw Error('フルバックアップZIPを選んでください');const p=normalizeProject(dec(get('project.json'))),idx=dec(get('assets.json'));if(!Array.isArray(idx))throw Error('素材一覧が不正です');const seen=new Set(),records=[];for(const a of idx){if(!/^[\w-]+$/.test(a.id)||['__proto__','constructor','prototype'].includes(a.id)||seen.has(a.id)||!KIND[a.kind])throw Error('素材IDまたは種類が不正です');seen.add(a.id);const data=get(a.file);if(!data)throw Error('素材が不足: '+a.file);const blob=new Blob([data.data],{type:a.mime||MIME(a.file)}),r={...a,uid:a.uid||auid(),blob,mime:a.mime||blob.type,size:blob.size,meta:a.meta||{},deleted:!!a.deleted,deletedAt:a.deletedAt||0};if(/^image\//.test(r.mime)){const t=await mkThumb(blob,200);r.thumb=t.thumb;r.meta={...r.meta,w:t.w,h:t.h};if(!t.w)throw Error('画像を読めません: '+a.name);}records.push(r);}
  if(ask&&!confirm('現在のシナリオと素材をバックアップの内容で置き換えます。必要な作業は先にバックアップしてください。続けますか？'))return false;
@@ -1320,7 +1402,7 @@ $('#fRestore').onchange=async e=>{const file=e.target.files[0];e.target.value=''
  if(projectMigrated)toast('既存プロジェクトをIndexedDBへ移行しました');if(projectMigrated&&emergencyLoaded)setTimeout(()=>sheet('緊急スナップショットから復旧','<p class="wn">IndexedDB側のプロジェクトが見つからなかったため、localStorageの軽量スナップショットから復旧しました。長い本文は一部省略されている可能性があります。フルバックアップZIPがある場合は復元してください。</p>'),350);
  if(!AS.filter(a=>!a.deleted).length){if(freshProject&&location.protocol.startsWith('http')){try{const response=await fetch('starter_backup.zip');if(response.ok){await restoreBackup(await response.blob(),false);maybeIOSNotice();return;}}catch(e){}}if(!maybeIOSNotice())helpStudio();}else maybeIOSNotice();})();
 
-/* ===== ADV STUDIO 自己診断 v1 (Phase 1.5) ===== */
+/* ===== ADV STUDIO 自己診断 v2 (Phase 1.5) ===== */
 const SCK_KEY='__advSelfCheck__';
 const ADAPT={
  /* 確認済み：そのまま繋ぐ */
@@ -1366,7 +1448,7 @@ async function _sckHarness(script,fn){
   const t0=Date.now();let prev=null,same=0;
   while(Date.now()-t0<2500){await _sckRaf();
    const tx=box.querySelector('.kv-tx'),now=tx?tx.textContent:'';
-   if(now&&now===prev){if(++same>=3)break;}else{same=0;prev=now;}}
+   if(box.querySelector('.kv-ch.on')){prev='choice';break;}if(now&&now===prev){if(++same>=3)break;}else{same=0;prev=now;}}
   if(!prev)throw Error('本文が描画されない（タップ待ちか初期化失敗の可能性）');
   return await fn(box,pl);
  }finally{
@@ -1469,7 +1551,7 @@ const SCK_TESTS=[
 {g:'描画',id:'overflow',label:'本文がメッセージ窓からはみ出さない',run:()=>_sckHarness(SCK_SAY,box=>{
  const ms=box.querySelector('.kv-ms'),tx=box.querySelector('.kv-tx');
  if(!ms||!tx)throw Error('.kv-ms / .kv-tx が無い');
- const a=_sckR(ms),b=_sckR(tx);
+ const a=_sckR(ms),b=_sckR(tx);if(tx.scrollHeight>tx.clientHeight+1)throw Error('本文が表示域を超えています');
  if(b.bottom>a.bottom+1)throw Error('下へ'+_sckN(b.bottom-a.bottom)+'pxはみ出し');
  if(b.right>a.right+1)throw Error('右へ'+_sckN(b.right-a.right)+'pxはみ出し');
  return{ok:1,msg:'余白 下'+_sckN(a.bottom-b.bottom)+'px 右'+_sckN(a.right-b.right)+'px'};})},
@@ -1514,7 +1596,7 @@ const SCK_TESTS=[
  return{ok:1,msg:'キャラ・テーマ参照すべて有効'};}},
 {g:'整合性',id:'end',label:'各シーンが終端命令で終わる',run:async()=>{
  const p=ADAPT.getProject();
- const bad=p.scenes.filter(s=>!/@(end|jump)\b/.test(String(s.script||''))).map(s=>s.id);
+ const bad=p.scenes.filter(s=>!/@(end|finish|jump)\b/.test(String(s.script||''))).map(s=>s.id);
  if(bad.length)return{ok:0,warn:1,msg:bad.length+'件に @end / @jump が無い → '+bad.slice(0,8).join(', ')};
  return{ok:1,msg:'全シーンOK'};}},
 
@@ -1565,7 +1647,7 @@ async function sckRun(step){
 function sckReport(){
  const n={ok:0,ng:0,warn:0,skip:0};SCK_RES.forEach(x=>{if(n[x.state]!=null)n[x.state]++;});
  const mk={ok:'[OK]',ng:'[NG]',warn:'[注意]',skip:'[skip]',run:'[?]'};
- return ['ADV STUDIO 自己診断 v1','版: '+ADAPT.version()+' / 保存: '+ADAPT.storageMode(),
+ return ['ADV STUDIO 自己診断 v2','版: '+ADAPT.version()+' / 保存: '+ADAPT.storageMode(),
   '日時: '+new Date().toLocaleString(),'UA: '+navigator.userAgent,
   '画面: '+innerWidth+'x'+innerHeight+' dpr'+(devicePixelRatio||1),
   '結果: 合格'+n.ok+' 不合格'+n.ng+' 注意'+n.warn+' スキップ'+n.skip,'',
@@ -1575,9 +1657,9 @@ function sckOpen(){
  if(!document.getElementById('sckCss')){const s=document.createElement('style');s.id='sckCss';
   s.textContent='#sckWrap{position:fixed;inset:0;z-index:150;background:#000a;display:flex;align-items:flex-end}'
   +'#sckWrap .pn{background:var(--pn);border-radius:15px 15px 0 0;width:100%;max-height:88%;display:flex;flex-direction:column;border-top:1px solid var(--ln)}'
-  +'#sckWrap .hd{display:flex;align-items:center;gap:8px;padding:11px;border-bottom:1px solid var(--ln)}'
+  +'#sckWrap .hd{position:static;background:none;border-radius:0;display:flex;align-items:center;gap:8px;padding:11px;border-bottom:1px solid var(--ln)}'
   +'#sckWrap .hd b{flex:1;font-size:13.5px;color:var(--ac)}'
-  +'#sckWrap .bd{overflow:auto;padding:8px 11px;-webkit-overflow-scrolling:touch}'
+  +'#sckWrap .bd{position:static;min-height:0;border:0;background:none;border-radius:0;overflow:auto;padding:8px 11px;-webkit-overflow-scrolling:touch}'
   +'#sckWrap .gp{font-size:10.5px;color:var(--sb);letter-spacing:.12em;margin:11px 0 4px}'
   +'#sckWrap .rw{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid #202833;min-height:44px}'
   +'#sckWrap .st{flex:0 0 46px;font-size:10.5px;font-weight:700;padding-top:2px}'
@@ -1589,7 +1671,7 @@ function sckOpen(){
   +'#sckWrap .ft .btn{flex:1;min-height:48px}';document.head.appendChild(s);}
  document.getElementById('sckWrap')?.remove();
  const w=document.createElement('div');w.id='sckWrap';
- w.innerHTML='<div class="pn"><div class="hd"><b>自己診断 v1</b>'
+ w.innerHTML='<div class="pn"><div class="hd"><b>自己診断 v2</b>'
   +'<button class="btn ico" id="sckX" style="min-width:44px;min-height:44px">✕</button></div>'
   +'<div class="bd"><p class="sb">実行中…</p></div>'
   +'<div class="ft"><button class="btn ac" id="sckRe">もう一度</button>'
