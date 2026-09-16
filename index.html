@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADV STUDIO 2.2 / Data Safety Phase 1 -->
+<!-- ADV STUDIO 2.2.1 / Data Safety Phase 1 -->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -116,7 +116,7 @@ code{background:#090c11;border:1px solid var(--ln);border-radius:4px;padding:1px
 <body>
 <div id="app">
  <header>
-  <div class="tt" id="hdTitle">暮石村<small>ADV STUDIO 2.2</small></div>
+  <div class="tt" id="hdTitle">暮石村<small>ADV STUDIO 2.2.1</small></div>
   <button class="btn ico" id="bUndo">↶</button><button class="btn ico" id="bRedo">↷</button>
   <button class="btn ac" id="bPlay">▶ 再生</button>
  </header>
@@ -311,7 +311,7 @@ const DEF={title:'暮石村',
 @fadeout ms=900
 @end`}]};
 let P=null,hist=[],hi=-1,cs=0,sel=0,mode='card',errs={};
-const STUDIO_VERSION='2.2',LS_PROJECT='kv_proj2',LS_BACKUP_META='kv_backup_meta2',LS_IOS_NOTICE='kv_ios_home_notice2';
+const STUDIO_VERSION='2.2.1',LS_PROJECT='kv_proj2',LS_BACKUP_META='kv_backup_meta2',LS_IOS_NOTICE='kv_ios_home_notice2';
 let storageMode='idb',projectMigrated=false,emergencyLoaded=false,freshProject=false,_sv=null,_savePromise=null,saveFailed=false,savePending=false,saveState='保存済',saveRev=0,savedRev=0,historyBusy=false;
 let backupWarned=false;
 function normalizeProject(o){
@@ -329,7 +329,10 @@ function emergencySnapshot(p){const q=JSON.parse(JSON.stringify(p));let remain=4
  q.scenes=q.scenes.map((sc,idx)=>{const o={...sc},txt=String(sc.script||''),left=Math.max(1,q.scenes.length-idx),cap=Math.max(1200,Math.min(10000,Math.floor(remain/left)));
   if(txt.length>cap){const h=Math.max(500,Math.floor((cap-80)/2));o.script=txt.slice(0,h)+'\n// [緊急スナップショット: 中間省略]\n'+txt.slice(-h);truncated=true;}else o.script=txt;remain=Math.max(0,remain-o.script.length);return o;});
  return {_emergency:2,savedAt:Date.now(),truncated,project:q};}
-function writeEmergencySnapshot(){if(storageMode!=='idb')return;try{localStorage.setItem(LS_PROJECT,JSON.stringify(emergencySnapshot(P)));}catch(e){}}
+function writeEmergencySnapshot(){if(storageMode!=='idb')return;const f=writeEmergencySnapshot,now=Date.now();
+ const commit=()=>{if(storageMode!=='idb')return;if(f._timer){clearTimeout(f._timer);f._timer=null;}try{localStorage.setItem(LS_PROJECT,JSON.stringify(emergencySnapshot(P)));f._last=Date.now();}catch(e){}};
+ if(!f._hooks){f._hooks=true;window.addEventListener('pagehide',commit);document.addEventListener('visibilitychange',()=>{if(document.hidden)commit();});}
+ if(!f._last||now-f._last>=30000){commit();return;}if(!f._timer)f._timer=setTimeout(commit,Math.max(0,30000-(now-f._last)));}
 async function loadP(){let raw=null;try{raw=localStorage.getItem(LS_PROJECT);}catch(e){}
  try{const rec=await pGet();storageMode='idb';
   if(rec&&rec.value){P=normalizeProject(rec.value);return;}
@@ -524,8 +527,15 @@ const PCSS=`
 @keyframes kvgl{0%,100%{filter:none}33%{filter:hue-rotate(-25deg) saturate(2) contrast(1.4)}66%{filter:invert(.12) blur(.6px)}}
 .kv-mw{position:absolute;left:0;right:0;bottom:0;padding:0 8px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;justify-content:flex-end;pointer-events:none}
 .kv-tp{display:flex;align-items:flex-end;gap:5px;pointer-events:auto;padding-bottom:2px}
-.kv-nm{position:absolute;z-index:5;left:3%;top:15%;width:34%;height:32%;display:none;align-items:center;justify-content:center;text-align:center;padding:0;font-size:14px;letter-spacing:.06em;background:none!important;border:0!important;border-radius:0;white-space:nowrap;font-family:serif;pointer-events:none}
-.kv-nm span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;overflow:hidden}.kv-cb.im span{display:flex;align-items:center;justify-content:center;overflow:hidden}.kv-ms{min-height:100px;max-height:100%;flex:1}.kv-nm.on{display:flex}
+.kv-nm{position:relative;z-index:5;display:none;align-self:flex-start;max-width:62%;
+ padding:4px 14px;margin:0 0 -1px 10px;background:linear-gradient(#131c26f0,#0a1016f0);
+ border:1px solid #ffffff33;border-bottom:0;border-radius:7px 7px 0 0;
+ font-size:14px;letter-spacing:.06em;white-space:nowrap;overflow:hidden;
+ font-family:serif;pointer-events:none;flex:0 0 auto}
+.kv-nm.on{display:inline-flex;align-items:center}
+.kv-nm span{display:block;width:100%;overflow:hidden;text-overflow:ellipsis}
+.kv.kv-narr-center .kv-nm{display:none!important}
+.kv-cb.im span{display:flex;align-items:center;justify-content:center;overflow:hidden}.kv-ms{min-height:100px;max-height:100%;flex:1}
 .kv-tb{margin-left:auto;display:flex;gap:3px}
 .kv-tb button{background:#0d141de0;border:1px solid #ffffff33;color:#dbe6f2;border-radius:5px;font-size:10px;padding:5px 7px;font-family:sans-serif;letter-spacing:.06em}
 .kv-tb button.on{background:#2f6bb4;border-color:#7ab8ff;color:#fff}
@@ -585,7 +595,7 @@ function createPlayer(root,pj,resolve,opts){
   '<div class="kv-tl"></div><div class="kv-sy"><span></span></div><div class="kv-fl"></div><div class="kv-cv"></div></div>'+
   '<div class="kv-mw"><div class="kv-tp"><div class="kv-tb">'+
   '<button data-a="auto">AUTO</button><button data-a="skip">SKIP</button><button data-a="log">LOG</button><button data-a="menu">≡</button>'+
-  '</div></div><div class="kv-ms"><div class="kv-nm"><span></span></div><div class="kv-tx"></div><div class="kv-nx">▼</div></div></div>'+
+  '</div></div><div class="kv-nm"><span></span></div><div class="kv-ms"><div class="kv-tx"></div><div class="kv-nx">▼</div></div></div>'+
   '<div class="kv-ch"></div>'+
   '<div class="kv-lg"><div class="kv-in"></div><button class="kv-x" data-a="lgx">閉じる</button></div>'+
   '<div class="kv-mn"><div class="kv-in" data-r="sc"></div><button class="mi" data-a="mute">BGMミュート</button>'+
@@ -602,7 +612,15 @@ function createPlayer(root,pj,resolve,opts){
  const TH={};(pj.themes||[]).forEach(t=>TH[t.id]=t);
  const SC=(pj.scenes||[]).map(s=>{const p=parseScript(s.script,pj.characters||[]);return {id:s.id,title:s.title,ops:p.ops,labels:p.labels,theme:s.theme};});
  const CE={};let si=0,pi=0,flags=Object.assign({},opts.flags||{}),logs=[],nmOv=null,curTh=S.theme,typing=false,full='',ti=0,tm=null;
- const sounds=new Set();let audioLocked=false;let auto=false,skip=false,bgm=null,bgmId=null,muted=false,curBG='',top=false,at=null,wt=null,stat=!!opts.static,baseFS=16;
+ const sounds=new Set();let audioLocked=false;let auto=false,skip=false,bgm=null,bgmId=null,muted=false,curBG='',top=false,at=null,wt=null,stat=!!opts.static,baseFS=16,advOverlapWarned=false;
+ function advAssertNoOverlap(root){
+  if(advOverlapWarned)return;const a=root.querySelector('.kv-nm'),b=root.querySelector('.kv-tx');
+  if(!a||!b||!a.classList.contains('on'))return;
+  const r1=a.getBoundingClientRect(),r2=b.getBoundingClientRect();
+  if(!r1.width||!r2.width)return;
+  const ov=!(r1.right<=r2.left||r1.left>=r2.right||r1.bottom<=r2.top||r1.top>=r2.bottom);
+  if(ov){advOverlapWarned=true;console.warn('[ADV] 名前枠と本文が重なっています',r1,r2);if(typeof toast==='function')toast('描画不整合：名前枠と本文が重なっています');}
+ }
  function setTheme(id){const t=TH[id]||TH[S.theme]||(pj.themes||[])[0];if(!t)return;curTh=t.id;
   applyWin(E.ms,E.tx,t.slots.msg,MT,resolve,t.font,FN,null);
   baseFS=(t.font&&t.font.size)||16;
@@ -644,7 +662,7 @@ function createPlayer(root,pj,resolve,opts){
  function setTextLayout(kind,layout){const center=kind==='narr'&&(layout==='center'||layout==='black');E.kv.classList.toggle('kv-narr-center',center);E.kv.classList.toggle('kv-narr-black',kind==='narr'&&layout==='black');}
  function txt(sp,t,inst,opt){opt=opt||{};const kind=opt.type||(sp?'say':'narr'),layout=opt.layout||'box';setTextLayout(kind,layout);
   const nm=nmOv!==null?nmOv:(sp||'');
-  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');
+  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');advAssertNoOverlap(root);
   const c=(pj.characters||[]).find(x=>x.name===sp);
   if(c&&c.color)E.nmt.style.color=c.color;
   lg(nm,t);E.nx.classList.remove('on');E.tx.classList.remove('kv-tx-fade','kv-tx-shake');full=t;ti=0;
@@ -1144,10 +1162,10 @@ function rUI(){
     if(!/^[\w-]+$/.test(id)||['__proto__','constructor','prototype'].includes(id))return toast('IDは半角英数字・_・-で入力');if(P.themes.some(t=>t.id===id))return toast('同じIDがあります');
     P.themes.push({id,name:nm,slots:{},font:DFONT(),nameFont:{f:'mincho',size:14,color:'#fff'}});push();shClose();rUI();};});
  $('#uAuto').onclick=()=>{let n=0;
-  AS.filter(a=>a.kind==='ui').forEach(a=>{Object.keys(SHINT).forEach(k=>{if(!SHINT[k].test(a.name))return;
+  AS.filter(a=>a.kind==='ui').forEach(a=>{Object.keys(SHINT).forEach(k=>{if(!SHINT[k].test(a.name)||k==='name')return;
    const hz=/ホラー|horror|05_|06_|12_/.test(a.name);
    const t=hz?(P.themes.find(x=>x.id==='horror')||P.themes[0]):P.themes[0];
-   const key=(k==='msg'||k==='name')?k:k;if(!t.slots[key]){t.slots[key]=a.id;n++;}});});
+   if(!t.slots[k]){t.slots[k]=a.id;n++;}});});
   push();rUI();toast(n?n+'件を自動割当しました':'判定できるファイル名がありませんでした');};
  $$('#t-ui .it').forEach(it=>it.onclick=async e=>{if(e.target.closest('[data-cal]'))return;
   const id=await pickAsset(['ui','bg']);if(id===null)return;const t=P.themes[+it.dataset.t];
@@ -1273,7 +1291,7 @@ $('#fJson').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new File
  r.onload=()=>{try{const p=normalizeProject(JSON.parse(r.result));if(!confirm('現在のシナリオを置き換えます。続けますか？'))return;P=p;cs=0;sel=0;resetHistory();tab('sc');toast('読み込みました');}catch(x){toast('読み込み失敗: '+x.message);}};
  r.readAsText(f);e.target.value='';};
 window.addEventListener('beforeunload',e=>{void flushSave(true);if(saveFailed||savePending){e.preventDefault();e.returnValue='';}});window.addEventListener('unhandledrejection',e=>toast('操作に失敗しました: '+(e.reason?.message||e.reason)));
-/* Studio 2.2: data safety and guided editing */
+/* Studio 2.2.1: data safety and guided editing */
 function assetFields(op){const a=op.args||{},keys=[];if(['bg','cg','bgm','se'].includes(op.cmd))keys.push(a.id?'id':'_');if(['chara','overlay','doc'].includes(op.cmd))keys.push(a.asset?'asset':op.cmd==='overlay'?'_':'asset');if(op.cmd==='blink'&&!chara(a.to))keys.push('to');return keys;}
 function assetUsage(id){const refs=[];P.scenes.forEach((sc,si)=>parseScript(sc.script,P.characters).ops.forEach(o=>{if(assetFields(o).some(k=>o.args?.[k]===id)){const nm=(CMD[o.cmd]&&CMD[o.cmd].l)||o.cmd;refs.push({type:'scene',scene:si,line:o.ln0+1,cmd:o.cmd,label:'シーン「'+sc.title+'」 / '+(o.ln0+1)+'行 / '+nm+' (@'+o.cmd+')'});}}));P.characters.forEach(c=>Object.entries(c.faces||{}).forEach(([k,v])=>{if(v===id)refs.push({type:'character',label:'キャラ「'+c.name+'」 / 表情 '+k});}));P.themes.forEach(t=>Object.entries(t.slots||{}).forEach(([k,v])=>{if(v===id)refs.push({type:'theme',label:'UIテーマ「'+t.name+'」 / '+k});}));return refs;}
 function assetRefs(id){return assetUsage(id).map(x=>x.label);}
