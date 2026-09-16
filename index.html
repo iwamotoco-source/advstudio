@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ADV STUDIO 2.2.1 / Data Safety Phase 1 -->
+<!-- ADV STUDIO 2.3.0 / Data Safety Phase 1.5 -->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -116,7 +116,7 @@ code{background:#090c11;border:1px solid var(--ln);border-radius:4px;padding:1px
 <body>
 <div id="app">
  <header>
-  <div class="tt" id="hdTitle">暮石村<small>ADV STUDIO 2.2.1</small></div>
+  <div class="tt" id="hdTitle">暮石村<small>ADV STUDIO 2.3.0</small></div>
   <button class="btn ico" id="bUndo">↶</button><button class="btn ico" id="bRedo">↷</button>
   <button class="btn ac" id="bPlay">▶ 再生</button>
  </header>
@@ -311,8 +311,8 @@ const DEF={title:'暮石村',
 @fadeout ms=900
 @end`}]};
 let P=null,hist=[],hi=-1,cs=0,sel=0,mode='card',errs={};
-const STUDIO_VERSION='2.2.1',LS_PROJECT='kv_proj2',LS_BACKUP_META='kv_backup_meta2',LS_IOS_NOTICE='kv_ios_home_notice2';
-let storageMode='idb',projectMigrated=false,emergencyLoaded=false,freshProject=false,_sv=null,_savePromise=null,saveFailed=false,savePending=false,saveState='保存済',saveRev=0,savedRev=0,historyBusy=false;
+const STUDIO_VERSION='2.3.0',LS_PROJECT='kv_proj2',LS_EMERGENCY='kv_emergency2',LS_BACKUP_META='kv_backup_meta2',LS_IOS_NOTICE='kv_ios_home_notice2';
+let storageMode='idb',projectMigrated=false,emergencyLoaded=false,emergencyRecoveryPending=false,freshProject=false,_sv=null,_savePromise=null,saveFailed=false,savePending=false,saveState='保存済',saveRev=0,savedRev=0,historyBusy=false;
 let backupWarned=false;
 function normalizeProject(o){
  if(!o||!Array.isArray(o.scenes)||!o.scenes.length)throw Error('シーンがありません');
@@ -330,16 +330,20 @@ function emergencySnapshot(p){const q=JSON.parse(JSON.stringify(p));let remain=4
   if(txt.length>cap){const h=Math.max(500,Math.floor((cap-80)/2));o.script=txt.slice(0,h)+'\n// [緊急スナップショット: 中間省略]\n'+txt.slice(-h);truncated=true;}else o.script=txt;remain=Math.max(0,remain-o.script.length);return o;});
  return {_emergency:2,savedAt:Date.now(),truncated,project:q};}
 function writeEmergencySnapshot(){if(storageMode!=='idb')return;const f=writeEmergencySnapshot,now=Date.now();
- const commit=()=>{if(storageMode!=='idb')return;if(f._timer){clearTimeout(f._timer);f._timer=null;}try{localStorage.setItem(LS_PROJECT,JSON.stringify(emergencySnapshot(P)));f._last=Date.now();}catch(e){}};
+ const commit=()=>{if(storageMode!=='idb')return;if(f._timer){clearTimeout(f._timer);f._timer=null;}try{localStorage.setItem(LS_EMERGENCY,JSON.stringify(emergencySnapshot(P)));f._last=Date.now();}catch(e){}};
  if(!f._hooks){f._hooks=true;window.addEventListener('pagehide',commit);document.addEventListener('visibilitychange',()=>{if(document.hidden)commit();});}
  if(!f._last||now-f._last>=30000){commit();return;}if(!f._timer)f._timer=setTimeout(commit,Math.max(0,30000-(now-f._last)));}
-async function loadP(){let raw=null;try{raw=localStorage.getItem(LS_PROJECT);}catch(e){}
+async function loadP(){let raw=null,emRaw=null;
+ try{raw=localStorage.getItem(LS_PROJECT);if(raw){try{const old=JSON.parse(raw);if(old&&old._emergency===2&&old.project){localStorage.setItem(LS_EMERGENCY,raw);localStorage.removeItem(LS_PROJECT);console.info('[ADV] 旧非常用スナップショットを '+LS_EMERGENCY+' へ移送しました');raw=null;}}catch(e){}}emRaw=localStorage.getItem(LS_EMERGENCY);}catch(e){}
+ const recoverEmergency=async snap=>{emergencyLoaded=!!snap.truncated;emergencyRecoveryPending=true;P=normalizeProject(snap.project);storageMode='local';updateBackupAge();
+  const warn=snap.truncated?'本文が一部省略されています。完全なデータはバックアップZIPから復元してください。この状態で編集を続けると省略部分は失われます。':'非常用スナップショットから起動しました。内容を確認してから復旧してください。';
+  await new Promise(resolve=>sheet('非常用スナップショットを検出','<p class="wn">'+esc(warn)+'</p><button class="btn ac" id="emRecover" style="width:100%;margin-top:8px">この内容で復旧する</button>',()=>{shClose.cb=resolve;$('#emRecover').onclick=async()=>{try{await pPut({key:'current',value:P,savedAt:Date.now(),version:STUDIO_VERSION});storageMode='idb';emergencyRecoveryPending=false;emergencyLoaded=false;writeEmergencySnapshot();updateBackupAge();shClose();toast('非常用スナップショットから復旧しました');}catch(e){toast('復旧保存に失敗しました: '+e.message);}};}));};
  try{const rec=await pGet();storageMode='idb';
   if(rec&&rec.value){P=normalizeProject(rec.value);return;}
   if(raw){P=normalizeProject(parseLegacyProject(raw));await pPut({key:'current',value:P,savedAt:Date.now(),version:STUDIO_VERSION});projectMigrated=true;writeEmergencySnapshot();return;}
+  if(emRaw){const snap=JSON.parse(emRaw);if(!snap||snap._emergency!==2||!snap.project)throw Error('非常用スナップショットの形式が不正です');await recoverEmergency(snap);return;}
   P=normalizeProject(DEF);freshProject=true;await pPut({key:'current',value:P,savedAt:Date.now(),version:STUDIO_VERSION});writeEmergencySnapshot();
- }catch(idbErr){storageMode='local';freshProject=!raw;try{P=normalizeProject(raw?parseLegacyProject(raw):DEF);}catch(e){P=normalizeProject(DEF);freshProject=true;toast('保存データを読み込めません。バックアップから復元してください');}
-  if(emergencyLoaded)setTimeout(()=>sheet('緊急スナップショットで起動しました','<p class="wn">IndexedDBを利用できないため、軽量スナップショットから起動しました。長いシーン本文は一部省略されている可能性があります。編集前にフルバックアップZIPからの復元を推奨します。</p>'),300);}}
+ }catch(idbErr){storageMode='local';freshProject=!raw&&!emRaw;try{if(raw)P=normalizeProject(parseLegacyProject(raw));else if(emRaw){const snap=JSON.parse(emRaw);if(!snap||snap._emergency!==2||!snap.project)throw Error('非常用スナップショットの形式が不正です');await recoverEmergency(snap);}else P=normalizeProject(DEF);}catch(e){P=normalizeProject(DEF);freshProject=true;toast('保存データを読み込めません。バックアップから復元してください');}}}
 function saveBadge(){let b=$('#saveState');if(!b){b=document.createElement('small');b.id='saveState';b.setAttribute('role','status');$('header').appendChild(b);}b.textContent=saveState;b.style.color=saveFailed?'#ff8585':'#a7ceb8';}
 function ensureSaveFailModal(){let m=$('#saveFailOverlay');if(m)return m;m=document.createElement('div');m.id='saveFailOverlay';m.innerHTML='<div class="sf"><h2>保存に失敗しました</h2><p id="sfReason"></p><div class="row"><button class="btn ac" id="sfBackup" style="flex:1">今すぐフルバックアップZIPを保存</button><button class="btn" id="sfRetry">保存を再試行</button></div><button class="btn" id="sfContinue" style="width:100%;margin-top:8px" disabled>バックアップ後に編集へ戻る</button></div>';document.body.appendChild(m);return m;}
 function hideSaveFailure(){const m=$('#saveFailOverlay');if(m)m.classList.remove('on');}
@@ -353,7 +357,7 @@ window.addEventListener('pagehide',()=>{void flushSave(true);});document.addEven
 function readBackupMeta(){try{return Object.assign({at:0,edits:0,firstSeen:Date.now()},JSON.parse(localStorage.getItem(LS_BACKUP_META)||'{}'));}catch(e){return {at:0,edits:0,firstSeen:Date.now()};}}
 let backupMeta=readBackupMeta();
 function storeBackupMeta(){try{localStorage.setItem(LS_BACKUP_META,JSON.stringify(backupMeta));}catch(e){}}
-function backupDue(){const base=backupMeta.at||backupMeta.firstSeen||Date.now();return Date.now()-base>=3600000||backupMeta.edits>=100;}
+function backupDue(){if(emergencyRecoveryPending)return true;const base=backupMeta.at||backupMeta.firstSeen||Date.now();return Date.now()-base>=3600000||backupMeta.edits>=100;}
 function updateBackupAge(){let b=$('#backupAge');if(!b){b=document.createElement('small');b.id='backupAge';$('header').appendChild(b);}const base=backupMeta.at||backupMeta.firstSeen||Date.now(),mins=Math.max(0,Math.floor((Date.now()-base)/60000));b.textContent=backupMeta.at?('BK '+(mins<60?mins+'分':Math.floor(mins/60)+'h')):'BK 未作成';b.classList.toggle('warn',backupDue());}
 function noteEdit(){backupMeta.edits=(backupMeta.edits||0)+1;storeBackupMeta();updateBackupAge();if(backupDue()&&!backupWarned){backupWarned=true;toast('フルバックアップをおすすめします');}}
 function markFullBackup(){backupMeta={at:Date.now(),edits:0,firstSeen:backupMeta.firstSeen||Date.now()};backupWarned=false;storeBackupMeta();updateBackupAge();}
@@ -1202,7 +1206,8 @@ function fontSheet(i){const t=P.themes[i],f=t.font,nf=t.nameFont;
 
 /* ============ config tab ============ */
 function rConf(){
- $('#t-cf').innerHTML='<div class="card"><h3>基本設定</h3>'+
+ $('#t-cf').innerHTML='<div class="card"><h3>自己診断</h3><p class="sb">保存・文章の解析・画面の重なり・データの整合性・書き出しを自動で点検します。プロジェクトの内容は変更されません。</p><button class="btn ac" id="bSelfCheck" style="width:100%;min-height:48px">▶ 自己診断を実行</button></div>'+
+ '<div class="card"><h3>基本設定</h3>'+
  '<label class="f">作品タイトル</label><input type="text" id="gT" value="'+esc(P.title||'')+'">'+
  '<label class="f">文字表示速度（文字/秒）</label><input type="number" id="gS" value="'+(P.settings.textSpeed||35)+'">'+
  '<label class="f">句読点で自然な間を入れる</label><select id="gP"><option value="1"'+(P.settings.punctWait===false?'':' selected')+'>入れる</option><option value=""'+(P.settings.punctWait===false?' selected':'')+'>入れない</option></select>'+
@@ -1291,7 +1296,7 @@ $('#fJson').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new File
  r.onload=()=>{try{const p=normalizeProject(JSON.parse(r.result));if(!confirm('現在のシナリオを置き換えます。続けますか？'))return;P=p;cs=0;sel=0;resetHistory();tab('sc');toast('読み込みました');}catch(x){toast('読み込み失敗: '+x.message);}};
  r.readAsText(f);e.target.value='';};
 window.addEventListener('beforeunload',e=>{void flushSave(true);if(saveFailed||savePending){e.preventDefault();e.returnValue='';}});window.addEventListener('unhandledrejection',e=>toast('操作に失敗しました: '+(e.reason?.message||e.reason)));
-/* Studio 2.2.1: data safety and guided editing */
+/* Studio 2.3.0: data safety, self-check and guided editing */
 function assetFields(op){const a=op.args||{},keys=[];if(['bg','cg','bgm','se'].includes(op.cmd))keys.push(a.id?'id':'_');if(['chara','overlay','doc'].includes(op.cmd))keys.push(a.asset?'asset':op.cmd==='overlay'?'_':'asset');if(op.cmd==='blink'&&!chara(a.to))keys.push('to');return keys;}
 function assetUsage(id){const refs=[];P.scenes.forEach((sc,si)=>parseScript(sc.script,P.characters).ops.forEach(o=>{if(assetFields(o).some(k=>o.args?.[k]===id)){const nm=(CMD[o.cmd]&&CMD[o.cmd].l)||o.cmd;refs.push({type:'scene',scene:si,line:o.ln0+1,cmd:o.cmd,label:'シーン「'+sc.title+'」 / '+(o.ln0+1)+'行 / '+nm+' (@'+o.cmd+')'});}}));P.characters.forEach(c=>Object.entries(c.faces||{}).forEach(([k,v])=>{if(v===id)refs.push({type:'character',label:'キャラ「'+c.name+'」 / 表情 '+k});}));P.themes.forEach(t=>Object.entries(t.slots||{}).forEach(([k,v])=>{if(v===id)refs.push({type:'theme',label:'UIテーマ「'+t.name+'」 / '+k});}));return refs;}
 function assetRefs(id){return assetUsage(id).map(x=>x.label);}
@@ -1314,6 +1319,302 @@ $('#fRestore').onchange=async e=>{const file=e.target.files[0];e.target.value=''
  sel=Math.max(0,parseScript(P.scenes[0].script,P.characters).ops.findIndex(o=>o.cmd==='msg'));tab('sc');
  if(projectMigrated)toast('既存プロジェクトをIndexedDBへ移行しました');if(projectMigrated&&emergencyLoaded)setTimeout(()=>sheet('緊急スナップショットから復旧','<p class="wn">IndexedDB側のプロジェクトが見つからなかったため、localStorageの軽量スナップショットから復旧しました。長い本文は一部省略されている可能性があります。フルバックアップZIPがある場合は復元してください。</p>'),350);
  if(!AS.filter(a=>!a.deleted).length){if(freshProject&&location.protocol.startsWith('http')){try{const response=await fetch('starter_backup.zip');if(response.ok){await restoreBackup(await response.blob(),false);maybeIOSNotice();return;}}catch(e){}}if(!maybeIOSNotice())helpStudio();}else maybeIOSNotice();})();
+
+/* ===== ADV STUDIO 自己診断 v1 (Phase 1.5) ===== */
+const SCK_KEY='__advSelfCheck__';
+const ADAPT={
+ /* 確認済み：そのまま繋ぐ */
+ getProject:()=>P, assets:()=>AS, dbtx:(s,m,f)=>dbtx(s,m,f),
+ zipWrite:f=>zipWrite(f), unzip:f=>unzip(f), toast:m=>toast(m),
+ snapKey:()=>LS_EMERGENCY, storageMode:()=>storageMode, version:()=>STUDIO_VERSION,
+ /* 現行本体へ接続 */
+ parseScript:text=>parseScript(text,DEF.characters).ops,
+ createPlayer:(root,project,resolve,options)=>createPlayer(root,project,resolve,options),
+ buildStandalone:()=>htmlShell(runtime(),{}),
+ playerResolve:id=>url(id)
+};
+
+const _sckRaf=()=>new Promise(r=>requestAnimationFrame(()=>r()));
+function _sckKb(n){return (n/1024).toFixed(1)+'KB';}
+function _sckShown(el){if(!el||!el.getClientRects().length)return false;
+ const s=getComputedStyle(el);return s.visibility!=='hidden'&&s.display!=='none';}
+function _sckOv(a,b,t=1){return !(a.right<=b.left+t||a.left>=b.right-t||a.bottom<=b.top+t||a.top>=b.bottom-t);}
+function _sckR(el){return el.getBoundingClientRect();}
+function _sckN(n){return Math.round(n*10)/10;}
+let _sckStub=null;
+function _sckStubUrl(){if(!_sckStub){const c=document.createElement('canvas');c.width=c.height=8;
+ const x=c.getContext('2d');x.fillStyle='#777';x.fillRect(0,0,8,8);_sckStub=c.toDataURL('image/png');}return _sckStub;}
+
+function _sckTestProject(script){
+ const p=JSON.parse(JSON.stringify(DEF));
+ p.scenes=[{id:'sck01',title:'selfcheck',script}];
+ p.settings.theme='normal';p.settings.textSpeed=0;p.settings.autoWait=1;
+ return normalizeProject(p);
+}
+async function _sckHarness(script,fn){
+ if(!ADAPT.createPlayer)throw Error('createPlayer が未接続');
+ const box=document.createElement('div');box.dataset.selfcheck='1';
+ box.style.cssText='position:fixed;left:0;top:0;width:390px;height:844px;'+
+  'opacity:0;pointer-events:none;z-index:-1;overflow:hidden';
+ document.body.appendChild(box);let pl=null;
+ try{
+  pl=ADAPT.createPlayer(box,_sckTestProject(script),ADAPT.playerResolve||(()=>_sckStubUrl()),{});
+  await _sckRaf();await _sckRaf();
+  box.style.pointerEvents='auto';
+  try{box.querySelector('*')&&box.firstElementChild.click();}catch(e){}
+  box.style.pointerEvents='none';
+  const t0=Date.now();let prev=null,same=0;
+  while(Date.now()-t0<2500){await _sckRaf();
+   const tx=box.querySelector('.kv-tx'),now=tx?tx.textContent:'';
+   if(now&&now===prev){if(++same>=3)break;}else{same=0;prev=now;}}
+  if(!prev)throw Error('本文が描画されない（タップ待ちか初期化失敗の可能性）');
+  return await fn(box,pl);
+ }finally{
+  try{if(pl&&typeof pl.destroy==='function')pl.destroy();}catch(e){}
+  box.remove();
+ }
+}
+function _sckPick(script,pred){
+ if(!ADAPT.parseScript)throw Error('parseScript が未接続');
+ const a=ADAPT.parseScript(script)||[];
+ const t=a.find(pred);
+ if(!t)throw Error('該当命令が生成されない（先頭3件: '+JSON.stringify(a.slice(0,3)).slice(0,200)+'）');
+ return t;
+}
+/* 現行 parseScript は cmd:'msg' / speaker / text を返す */
+const _sckIsSay=o=>!!o&&o.cmd==='msg'&&!!o.speaker;
+const _sckIsNarr=o=>!!o&&o.cmd==='msg'&&!o.speaker;
+const _sckName=o=>o&&o.speaker!==undefined?String(o.speaker||'').replace(/[\s　]/g,''):(o&&o.name!==undefined?o.name:o&&o.speaker);
+const _sckBody=o=>String((o&&(o.text!==undefined?o.text:o.body))||'').replace(/^「([\s\S]*)」$/,'$1');
+
+const SCK_SAY='雨宮彩音「これは折り返し確認用の本文です。名前枠と重ならないこと、'+
+ 'メッセージ窓からはみ出さないことを同時に確認できる長さにしてあります。」';
+const SCK_NARR='夜風が鳴っていた。これはナレーション行であり話者名は出ない。';
+const SCK_CHOICE='@choice\n* 進む -> #go\n* 待つ -> #wait\n@label go\n@end\n@label wait\n@end';
+
+const SCK_TESTS=[
+{g:'保存',id:'idb',label:'IndexedDBに書けて読み戻せる',run:async()=>{
+ const big='あ'.repeat(16384);
+ await ADAPT.dbtx('project','readwrite',st=>({q:st.put({key:SCK_KEY,value:big,savedAt:Date.now()})}));
+ const got=await ADAPT.dbtx('project','readonly',st=>({q:st.get(SCK_KEY)}));
+ await ADAPT.dbtx('project','readwrite',st=>({q:st.delete(SCK_KEY)}));
+ if(!got||got.value!==big)throw Error('読み戻し不一致');
+ return{ok:1,msg:'往復OK '+_sckKb(big.length*2)+' / mode='+ADAPT.storageMode()};}},
+{g:'保存',id:'ls',label:'localStorageが使える',run:async()=>{
+ const v='x'.repeat(2048);localStorage.setItem(SCK_KEY,v);
+ const g=localStorage.getItem(SCK_KEY);localStorage.removeItem(SCK_KEY);
+ if(g!==v)throw Error('読み戻し不一致');return{ok:1,msg:'往復OK'};}},
+{g:'保存',id:'snap',label:'非常用スナップショットが健全',run:async()=>{
+ const raw=localStorage.getItem(ADAPT.snapKey());
+ if(!raw)return{ok:0,warn:1,msg:'未作成（起動直後なら正常）'};
+ const o=JSON.parse(raw);
+ if(o._emergency!==2)throw Error('形式が不正');
+ const min=Math.round((Date.now()-(o.savedAt||0))/60000);
+ if(o.truncated)return{ok:0,warn:1,msg:'本文が省略されている（'+min+'分前 / '+_sckKb(raw.length*2)+'）ZIPバックアップ推奨'};
+ return{ok:1,msg:min+'分前 / '+_sckKb(raw.length*2)+' / 省略なし'};}},
+{g:'保存',id:'keysep',label:'スナップショットが正規データを汚していない',run:async()=>{
+ const raw=localStorage.getItem(LS_PROJECT);
+ if(!raw)return{ok:1,msg:'LS_PROJECT は空（IndexedDB運用中で正常）'};
+ const o=JSON.parse(raw);
+ if(o&&o._emergency===2)throw Error('LS_PROJECT に切り詰めデータが入っている（Part B未適用）');
+ return{ok:1,msg:'LS_PROJECT は完全データ'};}},
+{g:'保存',id:'json',label:'プロジェクトがJSON往復で欠けない',run:async()=>{
+ const p=ADAPT.getProject(),s=JSON.stringify(p),q=normalizeProject(JSON.parse(s));
+ const ca=p.scenes.reduce((n,x)=>n+String(x.script||'').length,0);
+ const cb=q.scenes.reduce((n,x)=>n+String(x.script||'').length,0);
+ if(p.scenes.length!==q.scenes.length)throw Error('シーン数が変化');
+ if(ca!==cb)throw Error('本文文字数が変化 '+ca+'→'+cb);
+ return{ok:1,msg:'シーン'+p.scenes.length+' / 本文'+ca+'字 一致（'+_sckKb(s.length*2)+'）'};}},
+{g:'保存',id:'quota',label:'保存容量に余裕がある',run:async()=>{
+ if(!navigator.storage?.estimate)return{ok:0,skip:1,msg:'この端末では取得不可'};
+ const e=await navigator.storage.estimate(),pct=e.quota?Math.round(e.usage/e.quota*100):0;
+ return{ok:pct<80?1:0,warn:pct>=80?1:0,msg:'使用率'+pct+'%（'+_sckKb(e.usage)+'/'+_sckKb(e.quota)+'）'};}},
+{g:'保存',id:'hist',label:'Undo履歴が素材状態を含む',run:async()=>{
+ const x=snapState();
+ if(!Array.isArray(x.assets))throw Error('assets が配列でない');
+ if(AS.length&&!('deleted' in x.assets[0]))throw Error('deleted フラグが履歴に入っていない');
+ return{ok:1,msg:'履歴'+hist.length+'件 / 素材'+x.assets.length+'件を記録'};}},
+
+{g:'解析',id:'say',label:'セリフの話者と本文を分解できる',run:async()=>{
+ const t=_sckPick(SCK_SAY,_sckIsSay),b=_sckBody(t);
+ if(_sckName(t)!=='雨宮彩音')throw Error('話者='+JSON.stringify(_sckName(t)));
+ if(b.startsWith('「')||b.endsWith('」'))throw Error('本文に鉤括弧が残る');
+ return{ok:1,msg:'話者/本文OK'};}},
+{g:'解析',id:'nest',label:'セリフ内の鉤括弧を壊さない',run:async()=>{
+ const t=_sckPick('雨宮彩音「彼は「やめろ」と言った」',_sckIsSay);
+ if(_sckName(t)!=='雨宮彩音')throw Error('話者='+JSON.stringify(_sckName(t)));
+ if(_sckBody(t)!=='彼は「やめろ」と言った')throw Error('本文='+JSON.stringify(_sckBody(t)));
+ return{ok:1,msg:'入れ子OK'};}},
+{g:'解析',id:'narr',label:'ナレーションに話者が付かない',run:async()=>{
+ const t=_sckPick(SCK_NARR,_sckIsNarr);
+ if(_sckName(t))throw Error('話者が付く='+JSON.stringify(_sckName(t)));
+ return{ok:1,msg:'ナレーションOK'};}},
+{g:'解析',id:'ruby',label:'ルビ記法を破壊しない',run:async()=>{
+ const t=_sckPick('｜暮石《くれいし》村へ向かう。',_sckIsNarr),b=_sckBody(t);
+ if(!b.includes('｜')||!b.includes('《')||!b.includes('》'))throw Error('記号が失われた='+JSON.stringify(b));
+ return{ok:1,msg:'記法保持OK'};}},
+{g:'解析',id:'blank',label:'空行から空のセリフを作らない',run:async()=>{
+ const a=ADAPT.parseScript('\n　\n \n')||[];
+ const bad=a.filter(o=>(_sckIsSay(o)||_sckIsNarr(o))&&!_sckBody(o).trim());
+ if(bad.length)throw Error('空の表示命令が'+bad.length+'件');
+ return{ok:1,msg:'空行OK'};}},
+
+{g:'描画',id:'name',label:'名前枠と本文が重ならない',run:()=>_sckHarness(SCK_SAY,box=>{
+ const nm=box.querySelector('.kv-nm'),tx=box.querySelector('.kv-tx');
+ if(!tx)throw Error('.kv-tx が無い');
+ if(!_sckShown(nm))throw Error('名前枠が表示されない');
+ const a=_sckR(nm),b=_sckR(tx);
+ if(_sckOv(a,b))throw Error('重なり 名前下端'+_sckN(a.bottom)+' / 本文上端'+_sckN(b.top));
+ return{ok:1,msg:'名前下端'+_sckN(a.bottom)+' → 本文上端'+_sckN(b.top)};})},
+{g:'描画',id:'overflow',label:'本文がメッセージ窓からはみ出さない',run:()=>_sckHarness(SCK_SAY,box=>{
+ const ms=box.querySelector('.kv-ms'),tx=box.querySelector('.kv-tx');
+ if(!ms||!tx)throw Error('.kv-ms / .kv-tx が無い');
+ const a=_sckR(ms),b=_sckR(tx);
+ if(b.bottom>a.bottom+1)throw Error('下へ'+_sckN(b.bottom-a.bottom)+'pxはみ出し');
+ if(b.right>a.right+1)throw Error('右へ'+_sckN(b.right-a.right)+'pxはみ出し');
+ return{ok:1,msg:'余白 下'+_sckN(a.bottom-b.bottom)+'px 右'+_sckN(a.right-b.right)+'px'};})},
+{g:'描画',id:'narrname',label:'ナレーションで名前枠が出ない',run:()=>_sckHarness(SCK_NARR,box=>{
+ if(_sckShown(box.querySelector('.kv-nm')))throw Error('名前枠が表示されている');
+ return{ok:1,msg:'非表示OK'};})},
+{g:'描画',id:'choice',label:'選択肢が窓と重ならず44px以上',run:()=>_sckHarness(SCK_CHOICE,box=>{
+ const cb=[...box.querySelectorAll('.kv-cb')].filter(_sckShown);
+ if(!cb.length)throw Error('選択肢が描画されない');
+ const ms=box.querySelector('.kv-ms');
+ if(ms&&_sckShown(ms)){const m=_sckR(ms);
+  cb.forEach((e,i)=>{if(_sckOv(_sckR(e),m))throw Error('選択肢'+(i+1)+'が窓と重なる');});}
+ const small=cb.filter(e=>_sckR(e).height<44);
+ if(small.length)return{ok:0,warn:1,msg:cb.length+'個 / 44px未満が'+small.length+'個'};
+ return{ok:1,msg:cb.length+'個 重なりなし・44px以上'};})},
+
+{g:'整合性',id:'slot',label:'テーマUI画像の参照切れが無い',run:async()=>{
+ const p=ADAPT.getProject(),miss=[];
+ p.themes.forEach(t=>Object.entries(t.slots||{}).forEach(([k,v])=>{if(v&&!A(v))miss.push(t.id+'.'+k+'='+v);}));
+ if(miss.length)throw Error(miss.length+'件 → '+miss.slice(0,8).join(', '));
+ return{ok:1,msg:'テーマ'+p.themes.length+'件すべて解決'};}},
+{g:'整合性',id:'face',label:'立ち絵（表情）の参照切れが無い',run:async()=>{
+ const p=ADAPT.getProject(),miss=[];
+ p.characters.forEach(c=>Object.entries(c.faces||{}).forEach(([k,v])=>{if(v&&!A(v))miss.push(c.id+'.'+k+'='+v);}));
+ if(miss.length)throw Error(miss.length+'件 → '+miss.slice(0,8).join(', '));
+ return{ok:1,msg:'キャラ'+p.characters.length+'件すべて解決'};}},
+{g:'整合性',id:'label',label:'存在しないラベルへ飛んでいない',run:async()=>{
+ const p=ADAPT.getProject(),bad=[];
+ p.scenes.forEach(s=>{const t=String(s.script||'');
+  const labels=new Set([...t.matchAll(/^@label\s+([^\s]+)/gm)].map(m=>m[1]));
+  const jumps=[...t.matchAll(/(?:@jump\s+#|->\s*#)([^\s]+)/g)].map(m=>m[1]);
+  jumps.forEach(j=>{if(!labels.has(j))bad.push(s.id+'→#'+j);});});
+ if(bad.length)throw Error(bad.length+'件 → '+bad.slice(0,8).join(', '));
+ return{ok:1,msg:'全'+p.scenes.length+'シーンのジャンプ先が存在'};}},
+{g:'整合性',id:'ref',label:'未登録のキャラ/テーマを指定していない',run:async()=>{
+ const p=ADAPT.getProject(),cid=new Set(p.characters.map(c=>c.id)),tid=new Set(p.themes.map(t=>t.id)),bad=[];
+ p.scenes.forEach(s=>{const t=String(s.script||'');
+  [...t.matchAll(/@(?:chara|blink)[^\n]*?\bid=([^\s]+)/g)].forEach(m=>{if(!cid.has(m[1]))bad.push(s.id+': chara '+m[1]);});
+  [...t.matchAll(/@blink[^\n]*?\bto=([^\s]+)/g)].forEach(m=>{if(!cid.has(m[1]))bad.push(s.id+': blink to '+m[1]);});
+  [...t.matchAll(/^@uitheme\s+([^\s]+)/gm)].forEach(m=>{if(!tid.has(m[1]))bad.push(s.id+': theme '+m[1]);});});
+ if(bad.length)throw Error(bad.length+'件 → '+bad.slice(0,8).join(', '));
+ return{ok:1,msg:'キャラ・テーマ参照すべて有効'};}},
+{g:'整合性',id:'end',label:'各シーンが終端命令で終わる',run:async()=>{
+ const p=ADAPT.getProject();
+ const bad=p.scenes.filter(s=>!/@(end|jump)\b/.test(String(s.script||''))).map(s=>s.id);
+ if(bad.length)return{ok:0,warn:1,msg:bad.length+'件に @end / @jump が無い → '+bad.slice(0,8).join(', ')};
+ return{ok:1,msg:'全シーンOK'};}},
+
+{g:'書き出し',id:'html',label:'単体HTMLを生成できる',run:async()=>{
+ if(!ADAPT.buildStandalone)return{ok:0,skip:1,msg:'生成関数が未接続'};
+ const h=ADAPT.buildStandalone();
+ if(typeof h!=='string')throw Error('文字列を返さない');
+ if(h.length<20000)throw Error('出力が短すぎる '+_sckKb(h.length*2));
+ ['<html','.kv-nm','.kv-tx'].forEach(m=>{if(!h.includes(m))throw Error('出力に '+m+' が無い');});
+ return{ok:1,msg:_sckKb(h.length*2)+' 生成OK（ダウンロードはしていない）'};}},
+{g:'書き出し',id:'zip',label:'ZIPが往復できる',run:async()=>{
+ const src='テストデータ'.repeat(200),bytes=new TextEncoder().encode(src);
+ const blob=ADAPT.zipWrite([{name:'selfcheck.txt',data:bytes}]);
+ const out=await ADAPT.unzip(blob),hit=out.find(e=>e.name==='selfcheck.txt');
+ if(!hit)throw Error('展開結果にファイルが無い');
+ if(new TextDecoder().decode(hit.data)!==src)throw Error('内容が一致しない');
+ return{ok:1,msg:'往復OK（'+_sckKb(blob.size)+'）'};}},
+
+{g:'情報',id:'tap',label:'タップ領域44px未満の数',run:async()=>{
+ const els=[...document.querySelectorAll('button,.chip,select')]
+  .filter(e=>_sckShown(e)&&!e.closest('[data-selfcheck]')&&!e.closest('#sckWrap'));
+ const small=els.filter(e=>{const b=_sckR(e);return b.height<44||b.width<44;});
+ return{ok:small.length?0:1,warn:small.length?1:0,
+  msg:'表示中'+els.length+'個のうち'+small.length+'個が44px未満（Phase 4の改善候補）'};}}
+];
+
+let SCK_RES=[],_sckBusy=false;
+async function sckRun(step){
+ if(_sckBusy)return SCK_RES;_sckBusy=true;SCK_RES=[];
+ try{
+  for(const t of SCK_TESTS){
+   const row={g:t.g,id:t.id,label:t.label,state:'run',msg:''};
+   SCK_RES.push(row);step?.(SCK_RES);await _sckRaf();
+   try{
+    const o=await Promise.race([t.run(),
+     new Promise((_,j)=>setTimeout(()=>j(Error('6秒でタイムアウト')),6000))]);
+    row.state=o.skip?'skip':(o.warn?'warn':(o.ok?'ok':'warn'));row.msg=o.msg||'';
+   }catch(e){row.state='ng';row.msg=e?.message||String(e);}
+   step?.(SCK_RES);
+  }
+ }finally{
+  try{await ADAPT.dbtx('project','readwrite',st=>({q:st.delete(SCK_KEY)}));}catch(e){}
+  try{localStorage.removeItem(SCK_KEY);}catch(e){}
+  _sckBusy=false;
+ }
+ return SCK_RES;
+}
+function sckReport(){
+ const n={ok:0,ng:0,warn:0,skip:0};SCK_RES.forEach(x=>{if(n[x.state]!=null)n[x.state]++;});
+ const mk={ok:'[OK]',ng:'[NG]',warn:'[注意]',skip:'[skip]',run:'[?]'};
+ return ['ADV STUDIO 自己診断 v1','版: '+ADAPT.version()+' / 保存: '+ADAPT.storageMode(),
+  '日時: '+new Date().toLocaleString(),'UA: '+navigator.userAgent,
+  '画面: '+innerWidth+'x'+innerHeight+' dpr'+(devicePixelRatio||1),
+  '結果: 合格'+n.ok+' 不合格'+n.ng+' 注意'+n.warn+' スキップ'+n.skip,'',
+  ...SCK_RES.map(x=>mk[x.state]+' '+x.g+'/'+x.id+' '+x.label+(x.msg?' … '+x.msg:''))].join('\n');
+}
+function sckOpen(){
+ if(!document.getElementById('sckCss')){const s=document.createElement('style');s.id='sckCss';
+  s.textContent='#sckWrap{position:fixed;inset:0;z-index:150;background:#000a;display:flex;align-items:flex-end}'
+  +'#sckWrap .pn{background:var(--pn);border-radius:15px 15px 0 0;width:100%;max-height:88%;display:flex;flex-direction:column;border-top:1px solid var(--ln)}'
+  +'#sckWrap .hd{display:flex;align-items:center;gap:8px;padding:11px;border-bottom:1px solid var(--ln)}'
+  +'#sckWrap .hd b{flex:1;font-size:13.5px;color:var(--ac)}'
+  +'#sckWrap .bd{overflow:auto;padding:8px 11px;-webkit-overflow-scrolling:touch}'
+  +'#sckWrap .gp{font-size:10.5px;color:var(--sb);letter-spacing:.12em;margin:11px 0 4px}'
+  +'#sckWrap .rw{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid #202833;min-height:44px}'
+  +'#sckWrap .st{flex:0 0 46px;font-size:10.5px;font-weight:700;padding-top:2px}'
+  +'#sckWrap .tx{flex:1;min-width:0;font-size:12.5px;line-height:1.6;word-break:break-all}'
+  +'#sckWrap .tx i{display:block;font-style:normal;font-size:11px;color:var(--sb);margin-top:2px}'
+  +'#sckWrap .s-ok{color:var(--ok)}#sckWrap .s-ng{color:var(--dg)}#sckWrap .s-warn{color:#ffc07a}'
+  +'#sckWrap .s-skip{color:#6a7b8e}#sckWrap .s-run{color:var(--ac)}'
+  +'#sckWrap .ft{display:flex;gap:7px;padding:10px 11px calc(env(safe-area-inset-bottom) + 12px);border-top:1px solid var(--ln)}'
+  +'#sckWrap .ft .btn{flex:1;min-height:48px}';document.head.appendChild(s);}
+ document.getElementById('sckWrap')?.remove();
+ const w=document.createElement('div');w.id='sckWrap';
+ w.innerHTML='<div class="pn"><div class="hd"><b>自己診断 v1</b>'
+  +'<button class="btn ico" id="sckX" style="min-width:44px;min-height:44px">✕</button></div>'
+  +'<div class="bd"><p class="sb">実行中…</p></div>'
+  +'<div class="ft"><button class="btn ac" id="sckRe">もう一度</button>'
+  +'<button class="btn" id="sckCp">結果をコピー</button></div></div>';
+ document.body.appendChild(w);
+ const draw=()=>{const n={ok:0,ng:0,warn:0,skip:0};SCK_RES.forEach(x=>{if(n[x.state]!=null)n[x.state]++;});
+  const lab={ok:'合格',ng:'不合格',warn:'注意',skip:'—',run:'実行'};let g=null;
+  w.querySelector('.bd').innerHTML='<p class="sb">合格'+n.ok+' / 不合格'+n.ng+' / 注意'+n.warn+' / スキップ'+n.skip+'</p>'
+   +SCK_RES.map(x=>{const h=(x.g!==g?'<div class="gp">'+esc(x.g)+'</div>':'');g=x.g;
+    return h+'<div class="rw"><div class="st s-'+x.state+'">'+lab[x.state]+'</div><div class="tx">'
+     +esc(x.label)+(x.msg?'<i>'+esc(x.msg)+'</i>':'')+'</div></div>';}).join('');};
+ w.addEventListener('click',e=>{
+  if(e.target===w||e.target.closest('#sckX'))w.remove();
+  else if(e.target.closest('#sckRe'))sckRun(draw).then(draw);
+  else if(e.target.closest('#sckCp')){const t=sckReport();
+   const fb=()=>{const a=document.createElement('textarea');a.value=t;
+    a.style.cssText='position:fixed;left:0;top:0;opacity:0';document.body.appendChild(a);
+    a.select();try{document.execCommand('copy');}catch(x){}a.remove();};
+   navigator.clipboard?.writeText?navigator.clipboard.writeText(t).catch(fb):fb();
+   ADAPT.toast('診断結果をコピーしました');}
+ });
+ sckRun(draw).then(draw);
+}
+document.addEventListener('click',e=>{if(e.target.closest?.('#bSelfCheck')){e.preventDefault();sckOpen();}});
+
 </script>
 </body>
 </html>
