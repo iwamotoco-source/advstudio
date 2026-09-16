@@ -1,0 +1,56 @@
+name: Finalize ADV Studio 2.3.0 Phase 1.5
+
+on:
+  push:
+    branches:
+      - phase-1.5-adv-studio-2.3.0
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply reviewed patch and checks
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re,base64,gzip
+          w=Path('.github/workflows/apply-adv-230.yml').read_text()
+          b64=re.search(r"b64='([^']+)'",w).group(1)
+          Path('/tmp/adv230.patch').write_bytes(gzip.decompress(base64.b64decode(b64)))
+          PY
+          git apply --check /tmp/adv230.patch
+          git apply /tmp/adv230.patch
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html');s=p.read_text()
+          old="</button></div>'+ \n"
+          if s.count(old)!=1: raise SystemExit('diagnostic card whitespace marker mismatch')
+          s=s.replace(old,"</button></div>'+\n",1);p.write_text(s)
+          assert "const STUDIO_VERSION='2.3.0'" in s
+          assert "LS_EMERGENCY='kv_emergency2'" in s
+          assert 'localStorage.setItem(LS_EMERGENCY,JSON.stringify(emergencySnapshot(P)))' in s
+          assert 'ADV STUDIO 自己診断 v1 (Phase 1.5)' in s
+          mod=s[s.index('/* ===== ADV STUDIO 自己診断 v1 (Phase 1.5) ===== */'):]
+          for name in ('saveP','flushSave','noteEdit','aPut','aDel'):
+              assert name+'(' not in mod, name
+          a=s.index('<script>')+len('<script>');b=s.rindex('</script>')
+          Path('/tmp/adv230.js').write_text(s[a:b])
+          PY
+          node --check /tmp/adv230.js
+          git diff --check
+      - name: Commit index.html only
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/apply-adv-230.yml .github/workflows/finalize-adv-230.yml
+          git commit -m "ADV STUDIO 2.3.0 Phase 1.5 self-check and emergency key split"
+          git push origin HEAD:phase-1.5-adv-studio-2.3.0
