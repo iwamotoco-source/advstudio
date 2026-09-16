@@ -627,7 +627,7 @@ function createPlayer(root,pj,resolve,opts){
  function fin2(){opts.onEnd&&opts.onEnd({scene:SC[si]?.id,flags:{...flags}});root.dispatchEvent(new CustomEvent('adv:end',{detail:{scene:SC[si]?.id,flags:{...flags}}}));E.ed.classList.add('on');sbgm(800);}
  function ex(op){const a=op.args||{},id=a.id||a._;
   switch(op.cmd){
-   case 'msg':{const ma=op.args||{};let tx=String(op.text||'').replace(/\\n/g,'\n');if(ma.type==='say')tx='「'+tx.replace(/^「|」$/g,'')+'」';txt(op.speaker,tx,false,ma);return 'w';}
+   case 'msg':{const ma=op.args||{},kind=String(ma.type||(op.speaker?'say':'narr')).toLowerCase();let tx=String(op.text||'').replace(/\\n/g,'\n');if(kind==='say')tx='「'+tx.replace(/^「|」$/g,'')+'」';else if(kind==='narr')tx=tx.replace(/^「([\s\S]*)」$/,'$1');txt(op.speaker,tx,false,Object.assign({},ma,{type:kind}));return 'w';}
    case 'bg':setBG(id,a.fade,false);return;
    case 'cg':setBG(id,a.fade,true);return;
    case 'chara':show(a);return;
@@ -734,7 +734,7 @@ function rScene(){
 function cardHTML(op,i){
  const d=CMD[op.cmd];let ic='·',cls='',bd='',thumb='';
  if(op.cmd==='msg'){cls='msg'+(op.speaker?'':' nar');ic=op.speaker?'💬':'—';const ma=op.args||{},kind=ma.type||(op.speaker?'say':'narr');
-  let shown=String(op.text||'').replace(/\\n/g,'\n');if(ma.type==='say')shown='「'+shown.replace(/^「|」$/g,'')+'」';
+  let shown=String(op.text||'').replace(/\\n/g,'\n');if(kind==='say')shown='「'+shown.replace(/^「|」$/g,'')+'」';else if(kind==='narr')shown=shown.replace(/^「([\s\S]*)」$/,'$1');
   const tags=[];if(ma.type)tags.push(kind==='say'?'セリフ':'地文');if(ma.speed)tags.push('速度 '+ma.speed+'字/秒');if(ma.reveal&&ma.reveal!=='type')tags.push({instant:'即時',fade:'フェード',shake:'震え'}[ma.reveal]||ma.reveal);if(ma.layout&&ma.layout!=='box')tags.push(ma.layout==='black'?'暗転中央':'中央表示');
   bd='<div class="bd2">'+(op.speaker?'<div class="sp">'+esc(op.speaker)+'</div>':'')+'<div class="tx">'+esc(shown)+'</div>'+(tags.length?'<div class="ar">'+esc(tags.join(' ・ '))+'</div>':'')+'</div>';
   if(op.sid){const c=chara(op.sid);const f=c&&c.faces&&(c.faces.normal);if(f)thumb='<img class="th" src="'+th(f)+'">';}}
