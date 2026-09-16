@@ -66,13 +66,8 @@ jobs:
 
           rep("  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');\n  const c=(pj.characters||[]).find(x=>x.name===sp);", "  E.nmt.textContent=nm;E.nm.classList.toggle('on',!!nm&&kind==='say');advAssertNoOverlap(root);\n  const c=(pj.characters||[]).find(x=>x.name===sp);", 'advAssertNoOverlap call')
 
-          rep("""  AS.filter(a=>a.kind==='ui').forEach(a=>{Object.keys(SHINT).forEach(k=>{if(!SHINT[k].test(a.name))return;
-           const hz=/ホラー|horror|05_|06_|12_/.test(a.name);
-           const t=hz?(P.themes.find(x=>x.id==='horror')||P.themes[0]):P.themes[0];
-           const key=(k==='msg'||k==='name')?k:k;if(!t.slots[key]){t.slots[key]=a.id;n++;}});});""", """  AS.filter(a=>a.kind==='ui').forEach(a=>{Object.keys(SHINT).forEach(k=>{if(!SHINT[k].test(a.name)||k==='name')return;
-           const hz=/ホラー|horror|05_|06_|12_/.test(a.name);
-           const t=hz?(P.themes.find(x=>x.id==='horror')||P.themes[0]):P.themes[0];
-           if(!t.slots[k]){t.slots[k]=a.id;n++;}});});""", 'rUI uAuto name ignore')
+          rep("if(!SHINT[k].test(a.name))return;", "if(!SHINT[k].test(a.name)||k==='name')return;", 'rUI ignore name')
+          rep("const key=(k==='msg'||k==='name')?k:k;if(!t.slots[key]){t.slots[key]=a.id;n++;}", "if(!t.slots[k]){t.slots[k]=a.id;n++;}", 'rUI remove dead key')
 
           p.write_text(s)
           PY
