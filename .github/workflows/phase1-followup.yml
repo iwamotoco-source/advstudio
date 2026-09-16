@@ -1,0 +1,77 @@
+name: Phase 1 follow-up hardening
+
+on:
+  push:
+    paths:
+      - '.github/workflows/phase1-followup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch edge cases
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          def rep(old,new,label):
+              global s
+              n=s.count(old)
+              if n!=1: raise SystemExit(f'{label}: expected 1, got {n}')
+              s=s.replace(old,new,1)
+
+          rep("let storageMode='idb',projectMigrated=false,emergencyLoaded=false,_sv=null",
+              "let storageMode='idb',projectMigrated=false,emergencyLoaded=false,freshProject=false,_sv=null",'fresh flag')
+          rep("  P=normalizeProject(DEF);await pPut({key:'current',value:P,savedAt:Date.now(),version:STUDIO_VERSION});writeEmergencySnapshot();",
+              "  P=normalizeProject(DEF);freshProject=true;await pPut({key:'current',value:P,savedAt:Date.now(),version:STUDIO_VERSION});writeEmergencySnapshot();",'fresh idb')
+          rep(" }catch(idbErr){storageMode='local';try{P=normalizeProject(raw?parseLegacyProject(raw):DEF);}catch(e){P=normalizeProject(DEF);toast('保存データを読み込めません。バックアップから復元してください');}",
+              " }catch(idbErr){storageMode='local';freshProject=!raw;try{P=normalizeProject(raw?parseLegacyProject(raw):DEF);}catch(e){P=normalizeProject(DEF);freshProject=true;toast('保存データを読み込めません。バックアップから復元してください');}", 'fresh local')
+
+          old="function initHistory(){const x=snapState();hist=[x];hi=0;hdr();}\nfunction resetHistory(){const x=snapState();hist=[x];hi=0;saveP();hdr();}"
+          new="function initHistory(){const x=snapState();hist=[x];hi=0;hdr();}\nfunction ensureHistoryBase(){const x=snapState(),cur=hist[hi];if(cur&&x.sig===cur.sig)return;hist=hist.slice(0,hi+1);hist.push(x);if(hist.length>40)hist.shift();hi=hist.length-1;hdr();}\nfunction resetHistory(){const x=snapState();hist=[x];hi=0;saveP();hdr();}"
+          rep(old,new,'history base helper')
+          rep("async function softDeleteAsset(id){const a=A(id);if(!a)return;a.deleted=true;",
+              "async function softDeleteAsset(id){const a=A(id);if(!a)return;ensureHistoryBase();a.deleted=true;",'delete history base')
+          rep("async function restoreAsset(id){const a=AX(id);if(!a||!a.deleted)return;a.deleted=false;",
+              "async function restoreAsset(id){const a=AX(id);if(!a||!a.deleted)return;ensureHistoryBase();a.deleted=false;",'restore history base')
+          rep("if(id!==a.id&&AX(id))throw Error('同じIDがゴミ箱内を含めて存在します');const old=a.id,previousP=JSON.stringify(P)",
+              "if(id!==a.id&&AX(id))throw Error('同じIDがゴミ箱内を含めて存在します');ensureHistoryBase();const old=a.id,previousP=JSON.stringify(P)", 'rename history base')
+          rep(" if(!AS.filter(a=>!a.deleted).length){if(location.protocol.startsWith('http')){",
+              " if(!AS.filter(a=>!a.deleted).length){if(freshProject&&location.protocol.startsWith('http')){",'starter restore guard')
+          rep(" if(projectMigrated)toast('既存プロジェクトをIndexedDBへ移行しました');",
+              " if(projectMigrated)toast('既存プロジェクトをIndexedDBへ移行しました');if(projectMigrated&&emergencyLoaded)setTimeout(()=>sheet('緊急スナップショットから復旧','<p class=\"wn\">IndexedDB側のプロジェクトが見つからなかったため、localStorageの軽量スナップショットから復旧しました。長い本文は一部省略されている可能性があります。フルバックアップZIPがある場合は復元してください。</p>'),350);",'emergency warning')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Syntax and contract checks
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          a=s.index('<script>')+len('<script>');b=s.rindex('</script>')
+          Path('/tmp/advstudio.js').write_text(s[a:b],encoding='utf-8')
+          assert 'function ensureHistoryBase' in s
+          assert 'freshProject&&location.protocol' in s
+          assert 'function createPlayer(root,pj,resolve,opts)' in s
+          assert "new CustomEvent('adv:flags'" in s and "new CustomEvent('adv:end'" in s
+          PY
+          node --check /tmp/advstudio.js
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name 'actions'
+          git config user.email 'actions@github.com'
+          git add index.html
+          git commit -m 'Harden phase 1 asset undo and recovery behavior'
+          git push
+      - uses: actions/upload-artifact@v4
+        with:
+          name: advstudio-phase1-index-final
+          path: index.html
+          retention-days: 7
